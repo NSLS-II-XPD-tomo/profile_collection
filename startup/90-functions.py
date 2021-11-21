@@ -1,26 +1,145 @@
 
-def configure_area_det(det,acq_time,exposure,num_exposure=1):
+def configure_area_det(det,acq_time,acq_period=None,exposure=None,num_exposures=1):
+    
+    if det.name == 'prosilica':
+        acq_time = min(acq_time,25)
     
     if det.cam.acquire.get() == 0:
         yield from bps.abs_set(det.cam.acquire, 1, wait=True)
+        
+    if det.name == 'dexela': 
+        yield from bps.abs_set(det.cam.acquire_time, max(acq_time,0.1), wait=True)
+        acq_time_rbv = det.cam.acquire_time.get()  
+    else:
+        yield from bps.abs_set(det.cam.acquire_time, acq_time, wait=True)
+        acq_time_rbv = det.cam.acquire_time.get()        
+        
+    if det.name == 'dexela': 
+        yield from bps.abs_set(det.cam.acquire_period, acq_time_rbv+0.005, wait=True)
+        acq_period_rbv = det.cam.acquire_period.get()
+    else:
+        if acq_period is None:
+            yield from bps.abs_set(det.cam.acquire_period, acq_time_rbv, wait=True)
+            acq_period_rbv = det.cam.acquire_period.get()
+        else:
+            yield from bps.abs_set(det.cam.acquire_period, acq_period, wait=True)
+            acq_period_rbv = det.cam.acquire_period.get()
+            
+            
+    if exposure is None:
+        exposure = acq_time_rbv*10
 
-    yield from bps.abs_set(det.cam.acquire_time, acq_time, wait=True)
-    acq_time = det.cam.acquire_time.get()
 
-    num_frame = np.ceil(exposure / acq_time)
+    num_frames = np.ceil(exposure / acq_time_rbv)
     
-    yield from bps.abs_set(det.images_per_set, num_frame, wait=True)
+    yield from bps.abs_set(det.images_per_set, num_frames, wait=True)
     
-    yield from bps.abs_set(det.number_of_sets, num_exposure, wait=True)    
+    yield from bps.abs_set(det.number_of_sets, num_exposures, wait=True) 
+    
+    
+    
+    if det.name == 'emergent': 
+        print(">>>%s is configured as:\n acq_time = %.3fmsec;  acq_period = %.3fmsec; exposure = %.3fmsec \
+    (num frames = %.2f); num_exposures = %d"%(det.name,acq_time_rbv,acq_period_rbv,exposure,num_frames,num_exposures))
+    
+    else:
+        print(">>>%s is configured as:\n acq_time = %.3fsec;  acq_period = %.3fsec; exposure = %.3fsec \
+    (num frames = %.2f); num_exposures = %d"%(det.name,acq_time_rbv,acq_period_rbv,exposure,num_frames,num_exposures))
+    
 
-    print("{} is configured as: acq_time = {}; exposure = {} (num frames = {}); num_exposure = {}".format(det.name,det.cam.acquire_time.get(),exposure,num_frame,num_exposure))  
-    
     
     return 
 
 
 
-        
+
+
+
+def md_getter():
+    
+    import time
+    
+    md = {}
+    
+    md['md_time'] = time.strftime('%Y/%m/%d - %H:%M:%S')
+    
+    
+    for f in [Filters.flt1,Filters.flt2,Filters.flt3,Filters.flt4]:
+        md[f.name] = f.get()    
+    
+    
+    for m in [FastShutter,
+              mTopY, 
+              mTopZ, 
+              mPhi,
+              ePhi,
+              mRoll, 
+              mPitch,
+              mBaseY,
+              mBaseY,
+              mDexelaPhi,
+              mQuestarX,
+              mBeamStopY,
+              mSlitsYGap,    
+              mSlitsYCtr,    
+              mSlitsXGap,    
+              mSlitsXCtr,    
+              mSlitsTop,     
+              mSlitsBottom,  
+              mSlitsOutboard,
+              mSlitsInboard, 
+              mHexapodsZ,
+              mSigrayX,    
+              mSigrayY,    
+              mSigrayZ,    
+              mSigrayPitch,
+              mSigrayYaw,
+             ]:
+            md[m.name] = float('%.4f'%m.position)
+
+    sSmartPodUnit.set(0)
+    sSmartPodSync.set(1)
+    for s in [
+             sSmartPodUnit, 
+             sSmartPodTrasZ,
+             sSmartPodTrasX,
+             sSmartPodTrasY,
+             sSmartPodRotZ, 
+             sSmartPodRotX, 
+             sSmartPodRotY, 
+             sSmartPodSync, 
+             sSmartPodMove, 
+             ]:
+            md['%s_0'%s.name] = float('%.5f'%s.get())            
+            
+    sSmartPodUnit.set(1)
+    sSmartPodSync.set(1)
+    for s in [
+             sSmartPodUnit, 
+             sSmartPodTrasZ,
+             sSmartPodTrasX,
+             sSmartPodTrasY,
+             sSmartPodRotZ, 
+             sSmartPodRotX, 
+             sSmartPodRotY, 
+             sSmartPodSync, 
+             sSmartPodMove, 
+             ]:
+            md['%s_1'%s.name] = float('%.5f'%s.get())    
+    
+    for s in [
+             pdu1,pdu2,pdu3,pdu4,ring_current 
+             ]:
+            md[s.name] = float('%.2f'%s.get())  
+            
+    return md
+
+
+
+              
+              
+              
+              
 def beam_on(shutter_motor=FastShutter,sleep=0.1):
     shutter_motor.move(-7,wait=True)
     time.sleep(sleep)
@@ -114,9 +233,100 @@ def print_det_keys(det_class):
     
     
 
+
+
+
+
+
+
+def counter_2det(det1,acq_time1,det2,acq_time2,take_dark=False):
+
+
+    if take_dark:
+        
+        #beam_off
+        #lights_off
+        RE(configure_area_det(det1,acq_time=acq_time1))
+        RE(configure_area_det(det2,acq_time=acq_time2)) 
+        uid_dark = RE(count([det1,det2]),md={'task':'count with two detectors - dark'})[0]
+        #beam_on
+        #lights_on
+        RE(configure_area_det(det1,acq_time=acq_time1))
+        RE(configure_area_det(det2,acq_time=acq_time2)) 
+        uid_light = RE(count([det1,det2]),md={'task':'count with two detectors - light'})[0]
+        #beam_off
+        #lights_off
+        
+        ds_dark = raw[uid_dark].primary.read()
+        ds_dark = ds_dark.rename({
+                             'dim_1': '%s_y'%det2.name, 
+                             'dim_2': '%s_x'%det2.name,
+                             'dim_4': '%s_y'%det1.name, 
+                             'dim_5': '%s_x'%det1.name,
+                             '%s_image'%det1.name:'%s_image_dark'%det1.name,
+                             '%s_image'%det2.name:'%s_image_dark'%det2.name,
+                             '%s_stats1_total'%det2.name:'%s_stats1_total_dark'%det2.name,
+                             '%s_stats1_total'%det2.name:'%s_stats1_total_dark'%det2.name,
+                            }).squeeze(('dim_0','dim_3','time'))        
+        ds_light = raw[uid_light].primary.read()
+        ds_light = ds_light.rename({          
+                             'dim_1': '%s_y'%det2.name, 
+                             'dim_2': '%s_x'%det2.name,
+                             'dim_4': '%s_y'%det1.name, 
+                             'dim_5': '%s_x'%det1.name,
+                            }).squeeze(('dim_0','dim_3','time'))    
+        
+        ds = xr.merge([ds_dark,ds_light],compat='override')
+        
+        ds.attrs = {}
+        ds.attrs['uid_dark'] = uid_dark
+        ds.attrs['uid_light'] = uid_light
+        ds.attrs['md_time'] = time.strftime('%Y/%m/%d - %H:%M:%S')
+        ds.attrs['det1'] = det1.name
+        ds.attrs['det2'] = det2.name
+
+        z = ds.attrs.copy()
+        z.update(md_getter())
+
+        ds.attrs = z        
+        
+
+    else:
+        RE(configure_area_det(det1,acq_time=acq_time1))
+        RE(configure_area_det(det2,acq_time=acq_time2)) 
+        uid = RE(count([det1,det2]),md={'task':'count with two detectors'})[0]
+
+        ds = raw[uid].primary.read()
+        ds = ds.rename({'dim_1': '%s_y'%det2.name, 'dim_2': '%s_x'%det2.name,
+                        'dim_4': '%s_y'%det1.name, 'dim_5': '%s_x'%det1.name}).squeeze(('dim_0','dim_3','time'))
+        ds.attrs = db[uid].start['md']
+        ds.attrs['uid'] = uid
+        ds.attrs['md_time'] = time.strftime('%Y/%m/%d - %H:%M:%S')
+        ds.attrs['det1'] = det1.name
+        ds.attrs['det2'] = det2.name
+
+        z = ds.attrs.copy()
+        z.update(md_getter())
+
+        ds.attrs = z
+        
+        
+    return ds
+
+
+
     
     
     
+    
+    
+    
+    
+    
+    
+"""  
+
+LEGACY:   
     
 def counter(det, 
             acq_time,
@@ -335,10 +545,7 @@ def scanner(det,
     
     
     
-    
-"""  
 
-LEGACY:   
     
     
     
