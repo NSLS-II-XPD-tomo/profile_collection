@@ -247,26 +247,6 @@ def print_det_keys(det_class):
     
 
 
-
-
-
-
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
     
     
     
@@ -308,10 +288,7 @@ def counter_1det(det=None,
                                     'exposure':exposure})[0]
     beam_off()
         
-
     return uid_light, uid_flat, uid_dark
-
-
 
 
 def linescanner_1det(
@@ -416,9 +393,6 @@ def gridscanner_1det(
                     ):
 
 
-
-
-
     if include_dark:
         print('\n>>>> Taking dark\n') 
         beam_off()
@@ -449,7 +423,6 @@ def gridscanner_1det(
     motor2_current_pos = motor2.position
     print('>>> %s @ %.3f'%(motor2.name,motor2_current_pos))
 
-
     beam_on()
     RE(configure_area_det(det,acq_time=det_acq_time,exposure=det_exposure_gridscan))
 
@@ -459,7 +432,6 @@ def gridscanner_1det(
                                 snake_axes=snake),
                                 md={'task':'gridscan','acq_time':det_acq_time,'exposure':det_exposure_gridscan})[0]
     beam_off()
-
 
     if come_back:
         print('>>> Moving %s back to %.3f'%(motor1.name,motor1_current_pos))
@@ -502,7 +474,6 @@ def ds_maker(js,return_ds=False):
     if js['task'] == 'count_1det':  
 
         ds = xr.Dataset()
-
 
         if js['uid_dark'] != 'none':
             ds_dark = raw[js['uid_dark']].primary.read()
@@ -584,7 +555,6 @@ def ds_maker(js,return_ds=False):
         
         ds = xr.Dataset()
 
-
         ds_linescan = raw[js['uid_linescan']].primary.read()
         hdr_linescan = db[js['uid_linescan']]
         md_linescan = hdr_linescan.start['md']
@@ -607,9 +577,6 @@ def ds_maker(js,return_ds=False):
         ds = ds.assign_coords(time = ds_linescan.time)
 
 
-
-
-
         if js['uid_dark'] != 'none':
             ds_dark = raw[js['uid_dark']].primary.read()
             hdr_dark = db[js['uid_dark']]
@@ -623,9 +590,6 @@ def ds_maker(js,return_ds=False):
                         }
                  )
             ds['dark'] = da_dark  
-            
-            
-            
             
 
         if js['uid_flat'] != 'none':
@@ -655,14 +619,9 @@ def ds_maker(js,return_ds=False):
                      )                
             ds['flat'] = da_flat            
             
-
-
-
         z = ds.attrs.copy()
         z.update(md_getter())
         ds.attrs = z        
-
-
 
         comp = dict(zlib=False)
         encoding = {var: comp for var in ds.data_vars}
@@ -757,19 +716,6 @@ def ds_maker(js,return_ds=False):
 
 
 
-
-    #         da_stats1_total = xr.DataArray(data=ds_linescan['%s_stats1_total'%hdr_linescan.start['detectors'][0]].values,
-    #                   coords=[ds_linescan['%s'%hdr_linescan.start['motors'][0]]],
-    #                   dims=[hdr_linescan.start['motors'][0]],
-    #                  )
-    #         ds['stats1_total'] = da_stats1_total
-
-    #         ds = ds.assign_coords(time = ds_linescan.time)
-
-
-
-
-
         if js['uid_dark'] != 'none':
             ds_dark = raw[js['uid_dark']].primary.read()
             hdr_dark = db[js['uid_dark']]
@@ -783,9 +729,6 @@ def ds_maker(js,return_ds=False):
                         }
                  )
             ds['dark'] = da_dark  
-
-
-
 
 
         if js['uid_flat'] != 'none':
@@ -815,19 +758,13 @@ def ds_maker(js,return_ds=False):
                      )                
             ds['flat'] = da_flat            
 
-
-
-
         z = ds.attrs.copy()
         z.update(md_getter())
         ds.attrs = z        
 
-
-
         comp = dict(zlib=False)
         encoding = {var: comp for var in ds.data_vars}
         ds.to_netcdf(js['nc_path'], encoding=encoding)
-
 
         if return_ds:
             print(js['nc_path'])
@@ -840,585 +777,292 @@ def ds_maker(js,return_ds=False):
     
     
     
-    
-    
-    
-    
-"""  
+import pymatgen as mg
+from pymatgen.analysis.diffraction.xrd import XRDCalculator
+from copy import deepcopy
+from pymatgen.core.lattice import Lattice
+from pymatgen.core.structure import Structure
 
-LEGACY:   
-    
-def counter(det, 
-            acq_time,
-            num_exposure=1,
-            expo_dark=0, 
-            expo_bright=0, 
-            auto_off=True
-            ):
+#from https://github.com/scikit-beam/scikit-beam/blob/master/skbeam/core/utils.py
+def twotheta_to_q(two_theta, wavelength):
+    two_theta = np.asarray(two_theta)
+    wavelength = float(wavelength)
+    pre_factor = ((4 * np.pi) / wavelength)
+    return pre_factor * np.sin(two_theta / 2)
+def q_to_twotheta(q, wavelength):
+    q = np.asarray(q)
+    wavelength = float(wavelength)
+    pre_factor = wavelength / (4 * np.pi)
+    return 2 * np.arcsin(q * pre_factor)
 
+###mp_id materials project id for the sample, input
+def xrd_plotter(ax=None,mp_id=None,final=False,structure=None,str_file=None,label=None,scale=1.00,
+                marker='o',color='C0',label_yshift=0,label_xshift=0.1,
+                bottom=-0.2,
+                unit='q_A^-1', radial_range=(1,10),
+                wl=0.77,
+                stem=False,stem_scale='sqrt',normalize=True,yscale=1):    
     
+    if mp_id is not None:    
+        from pymatgen.ext.matproj import MPRester
+        mpr = MPRester('gI8Qmxe9AnkbTvNd')  ###
+        structure = mpr.get_structure_by_material_id(mp_id,final=final)  ##if there is a mp_id, assign it a structure via the materials project database
+    elif structure is None:
+        structure = Structure.from_file(str_file)   ###if there is no structure, it wil complain
+        
+    structure.lattice = Lattice.from_parameters(a=structure.lattice.abc[0]*scale, 
+                                                b=structure.lattice.abc[1]*scale,
+                                                c=structure.lattice.abc[2]*scale,
+                                                alpha=structure.lattice.angles[0],
+                                                beta =structure.lattice.angles[1],
+                                                gamma=structure.lattice.angles[2]
+                                                  )
+
+    xrdc = XRDCalculator(wavelength=wl) ###computes xrd pattern given wavelength , debye scherrer rings, and symmetry precision
+    
+    if unit == 'q_A^-1':
+        ps = xrdc.get_pattern(structure, scaled=True, two_theta_range=np.rad2deg(q_to_twotheta(radial_range,wl)))
+        X,Y = twotheta_to_q(np.deg2rad(ps.x),wl), ps.y
+    elif unit == '2th_deg':
+        ps = xrdc.get_pattern(structure, scaled=True, two_theta_range=radial_range)
+        X,Y = ps.x, ps.y
+    else:
+        ps = xrdc.get_pattern(structure, scaled=True, two_theta_range=radial_range)
+        X,Y = ps.x, ps.y
+        
+    if normalize:
+        Y = Y/max(Y)
+    Y = yscale*Y
+    
+    if stem_scale == 'sqrt':
+        Y = np.sqrt(Y)
+    if stem_scale == 'log':
+        Y = np.log(Y)       
+    
+    for i in X:
+        ax.axvline(x=i,lw=0.2,color=color)
+           
+    if stem:
+        ax.stem(X,Y+bottom,bottom=bottom,
+                markerfmt=color+marker,basefmt=color,linefmt=color)           
+    
+    ax.axhline(y=bottom,xmin=radial_range[0]+0.1,color=color)
+
+    ax.text(radial_range[0]+label_xshift,bottom+label_yshift,label,color=color)
+    
+    ax.axhline(y=bottom,lw=1,color=color) 
+    
+    
+    
+    
+    
+def integrator(img,ai,mask,
+               flip_mask=False,
+               median_filter_size=-1,
+               
+               npt=4000,npt_azim=360,method='csr',radial_range=(1,10),unit="q_A^-1",
+               
+               jupyter_style_plot=False,robust=True,cmap="inferno",vmin=None,vmax=None,
+               
+               plot=True,show_raw=True,ylogscale=True,xlogscale=False,
+               export_xy_as=None,
+               
+               mp_id=None,cif_file=None,cif_scale=1.00,
+               mp_id2=None,cif_file2=None,cif_scale2=1.00,
+               mp_id3=None,cif_file3=None,cif_scale3=1.00,
+               
+               export_fig_as=None):
+    
+    if flip_mask:
+        mask = np.flipud(mask)
+        
+    if median_filter_size > 1:
+        img = median_filter(img, size=median_filter_size)
+        
+    i1d_m = ai.integrate1d(img,npt=npt, mask=mask, method=method, 
+                            unit=unit, radial_range=radial_range)
     ds = xr.Dataset()
-
+    da_1d = xr.DataArray(data=i1d_m.intensity,
+                         coords=[i1d_m.radial],
+                         dims=['radial'],
+                         attrs={'unit':i1d_m.unit,
+                                'xlabel':i1d_m.unit.label,
+                                'ylabel':r"Intensity",
+                                'method':method,
+                                'radial_range':radial_range}
+                     ) 
+    ds['i1d'] = da_1d 
     
-    if expo_dark>0:
-
-        beam_off()
-        RE(configure_area_det(det,acq_time,exposure=expo_dark,num_exposure=num_exposure))
-        uid = RE(count([det],num=1))[0]
+    da_mask = xr.DataArray(data=mask,
+                         dims=['pixel_y','pixel_x'])    
+    ds['mask'] = da_mask   
+    
+    if plot:
         
-        img = np.array(list(db[-1].data('%s_image'%(det.name))))
-
-        img = img.mean(axis=(0,1))
-        if det.name == 'prosilica':
-            img = np.mean(img,-1)
+        fig = plt.figure(figsize=(12,6),dpi=96)
         
-        da = xr.DataArray(data=img.astype('float32'),
-                  coords=[np.arange(img.shape[0]), np.arange(img.shape[1])],
-                  dims=['pixel_y', 'pixel_x'],attrs=dict(uid=uid,
-                                                         det=det.name,
-                                                         acq_time=acq_time,
-                                                         exposure=expo_dark)
-                              )
-        ds['dark'] = da
-        
+        i2d_m = ai.integrate2d(img, npt_rad=npt, npt_azim=npt_azim, mask=mask, method=method,
+                                unit=unit, radial_range=radial_range)        
 
-
-    if expo_bright>0:
-
-        beam_on()
-        RE(configure_area_det(det,acq_time,exposure=expo_bright,num_exposure=num_exposure))
-        uid = RE(count([det],num=1))[0]
-        
-        if auto_off:
-            beam_off()
-        
-        img = np.array(list(db[-1].data('%s_image'%(det.name))))
-
-        img = img.mean(axis=(0,1))
-        if det.name == 'prosilica':
-            img = np.mean(img,-1)
-
-        da = xr.DataArray(data=img.astype('float32'),
-                  coords=[np.arange(img.shape[0]), np.arange(img.shape[1])],
-                  dims=['pixel_y', 'pixel_x'],attrs=dict(uid=uid,
-                                                         det=det.name,
-                                                         acq_time=acq_time,
-                                                         exposure=expo_bright)
-                              )
-        ds['bright'] = da
-
-
-
-    md={'type': 'count',
-        'time': time.time(),   
-        'filter1':Filters.flt1.get(),
-        'filter2':Filters.flt2.get(),
-        'filter3':Filters.flt3.get(),
-        'filter4':Filters.flt4.get(), 
-        'mBaseX':mBaseX.position,
-        'mBaseY':mBaseY.position,
-        'mTopX':mTopX.position,
-        'mTopY':mTopY.position, 
-        'mTopZ':mTopZ.position,
-        'mPhi':mPhi.position,  
-        'mSlitsTop':mSlitsTop.position,     
-        'mSlitsBottom':mSlitsBottom.position,    
-        'mSlitsOutboard':mSlitsOutboard.position,   
-        'mSlitsInboard':mSlitsInboard.position,     
-        'mPitch':mPitch.position,       
-        'mRoll':mRoll.position,      
-        'mDexelaPhi':mDexelaPhi.position,       
-        'mQuestarX':mQuestarX.position,      
-        'mSigrayX':mSigrayX.position,    
-        'mSigrayY':mSigrayY.position,    
-        'mSigrayZ':mSigrayZ.position,    
-        'mSigrayPitch':mSigrayPitch.position,   
-        'mSigrayYaw':mSigrayYaw.position,     
-        'FastShutter':FastShutter.position, 
-        'RingCurrent':ring_current.get(),
-        'mHexapodsZ':mHexapodsZ.position,
-        'ePhi':ePhi.position,
-       }
-
-    ds.attrs = md
-    
-    
-    return ds
-
-
-
-def scanner(det, 
-            motor,
-            acq_time,
-            num_exposure=1,
-            expo_dark=0, 
-            expo_bright=0, 
-            
-            motor_start = -0.1,
-            motor_stop =  0.1,
-            motor_nstep = 11, 
-            
-            come_back = False
-
-            ):
-
-    
-    ds = xr.Dataset()
-    
-    motor_initial_pos = motor.position
-
-    
-    if expo_dark>0:
-
-        beam_off()
-        RE(configure_area_det(det,acq_time,exposure=expo_dark,num_exposure=1))
-        uid = RE(count([det],num=1))[0]
-        
-        img = np.array(list(db[-1].data('%s_image'%(det.name))))
-        if det.name == 'prosilica':
-            img = np.mean(img,-1)
-        img = img.mean(axis=(0,1))
-
-        da = xr.DataArray(data=img.astype('float32'),
-                  coords=[np.arange(img.shape[0]), np.arange(img.shape[1])],
-                  dims=['pixel_y', 'pixel_x'],attrs=dict(uid=uid,
-                                                         det=det.name,
-                                                         acq_time=acq_time,
-                                                         exposure=expo_dark)
-                              )
-        ds['dark'] = da
-        
-
-
-    if expo_bright>0:
-
-        beam_on()
-        RE(configure_area_det(det,acq_time,exposure=expo_bright,num_exposure=1))
-        uid = RE(scan([det],motor,motor_start,motor_stop,motor_nstep))[0]
-        beam_off()
-        
-        imgs = np.array(list(db[-1].data('%s_image'%(det.name))))
-        if det.name == 'prosilica':
-            imgs = np.mean(imgs,-1)
-        imgs = imgs.mean(axis=(1))
-        
-        motor_pos = np.linspace(motor_start,motor_stop,motor_nstep)
-
-        da = xr.DataArray(data=imgs.astype('float32'),
-                  coords=[motor_pos, np.arange(imgs.shape[1]), np.arange(imgs.shape[2])],
-                  dims=[motor.name,'pixel_y', 'pixel_x'],attrs=dict(uid=uid,
-                                                         det=det.name,
-                                                         acq_time=acq_time,
-                                                         exposure=expo_bright,
-                                                         motor=motor.name,
-                                                         motor_start=motor_start,
-                                                         motor_stop=motor_stop,
-                                                         motor_nstep=motor_nstep,
-                                                         motor_initial_pos=motor_initial_pos)
-                              )
-        ds['scan'] = da
-        
-        if come_back:
-            print('moving back')
-            motor.move(motor_initial_pos)
-
-
-
-    md={'type': 'scan',
-        'time': time.time(),   
-        'filter1':Filters.flt1.get(),
-        'filter2':Filters.flt2.get(),
-        'filter3':Filters.flt3.get(),
-        'filter4':Filters.flt4.get(), 
-        'mBaseX':mBaseX.position,
-        'mBaseY':mBaseY.position,
-        'mTopX':mTopX.position,
-        'mTopY':mTopY.position, 
-        'mTopZ':mTopZ.position,
-        'mPhi':mPhi.position,  
-        'mSlitsTop':mSlitsTop.position,     
-        'mSlitsBottom':mSlitsBottom.position,    
-        'mSlitsOutboard':mSlitsOutboard.position,   
-        'mSlitsInboard':mSlitsInboard.position,     
-        'mPitch':mPitch.position,       
-        'mRoll':mRoll.position,      
-        'mDexelaPhi':mDexelaPhi.position,       
-        'mQuestarX':mQuestarX.position,      
-        'mSigrayX':mSigrayX.position,    
-        'mSigrayY':mSigrayY.position,    
-        'mSigrayZ':mSigrayZ.position,    
-        'mSigrayPitch':mSigrayPitch.position,   
-        'mSigrayYaw':mSigrayYaw.position,     
-        'FastShutter':FastShutter.position, 
-        'RingCurrent':ring_current.get(),
-        'mHexapodsZ':mHexapodsZ.position,
-        'ePhi':ePhi.position,
-       }
-
-    ds.attrs = md
-    
-    
-    return ds
-
-    
-    
-    
-    
-    
-
-    
-    
-    
-def counter(det,exposure_time=1, take_dark=False, take_bright=True, num_dark = 3, num_bright = 2):
-
-    ds = xr.Dataset()
-
-    
-    if take_dark:
-        set_detector(det,exposure_time=exposure_time,num_images=num_dark)
-
-#         laser_off()
-#         light1_off()
-#         light2_off()
-
-        beam_off()
-        uid_dark = RE(count([det],num=1))[0]
-        
-        if det.name == 'prosilica':
-            tiffs = get_tiff_list(hdr=db[-1])
-            t0 = fabio.open(tiffs[0]).data
-            img_dark = np.zeros((len(tiffs),t0.shape[0],t0.shape[1]))
-            for e,t in enumerate(tiffs):
-                img_dark[e,:,:] = fabio.open(tiffs[e]).data
+        ax1 = fig.add_subplot(1,2,1)
+        if jupyter_style_plot:
+            jupyter.display(img,ax=ax1)
+            ax1.imshow(mask,alpha=0.1,cmap='Greys')
         else:
-            img_dark = np.array(list(db[-1].data('%s_image'%(det.name))))
-            
-
-        if len(img_dark.shape) == 4:
-            img_dark = img_dark.mean(axis=1)
-            img_dark = img_dark.mean(axis=0)
-        if len(img_dark.shape) == 3:
-            img_dark = img_dark.mean(axis=0)
-            
-        da_dark = xr.DataArray(data=img_dark.astype('float32'),
-                  coords=[np.arange(img_dark.shape[0]), np.arange(img_dark.shape[1])],
-                  dims=['pixel_y', 'pixel_x'],attrs=None
-                 )
-        ds['dark'] = da_dark
-        dark_taken = 'true'
+            da_img = xr.DataArray(data=img,dims=['pixel_y','pixel_x'])    
+            ds['img'] = da_img
+            ds['img'].plot.imshow(ax=ax1,robust=robust,cmap=cmap,vmin=vmin,vmax=vmax,
+                        yincrease=False,
+                        add_colorbar=True,
+                        cbar_kwargs=dict(orientation='vertical',
+                        pad=0.02, shrink=0.6, label=None))  
+            ax1.set_aspect('equal')
+            ax1.imshow(mask,alpha=0.1,cmap='Greys')
         
-    else:
-        uid_dark = 'none'
-        num_dark = 'none'
-        dark_taken = 'false'
-
-    
-    if take_bright:
-        beam_on()
-        set_detector(det,exposure_time=exposure_time,num_images=num_bright)
-        uid_bright = RE(count([det],num=1))[0]
-        beam_off()
-        bright_taken = 'true'
-    else:
-        uid_bright = 'none'
-        bright_taken = 'false'
-        
-        
-    if bright_taken == 'true':
-        if det.name == 'prosilica':
-            tiffs = get_tiff_list(hdr=db[-1])
-            t0 = fabio.open(tiffs[0]).data
-            img_bright = np.zeros((len(tiffs),t0.shape[0],t0.shape[1]))
-            for e,t in enumerate(tiffs):
-                img_bright[e,:,:] = fabio.open(tiffs[e]).data
+        if median_filter_size > 1:
+            ax1.set_title('Median_filtered 2D image')
         else:
-            img_bright = np.array(list(db[-1].data('%s_image'%(det.name))))
-
-        if len(img_bright.shape) == 4:
-            img_bright = img_bright.mean(axis=1)
-            img_bright = img_bright.mean(axis=0)
-        if len(img_bright.shape) == 3:
-            img_bright = img_bright.mean(axis=0)
-
-
-        da_bright = xr.DataArray(data=img_bright.astype('float32'),
-                  coords=[np.arange(img_bright.shape[0]), np.arange(img_bright.shape[1])],
-                  dims=['pixel_y', 'pixel_x'],attrs=None
-                 )
-        ds['bright'] = da_bright
-        
-
-
-    md={'type': 'count',
-        'time': time.time(),
-        'detector':det.name,
-        'exposure_time':exposure_time,
-        'dark_taken': dark_taken,
-        'bright_taken': bright_taken,
-        'uid_dark':uid_dark,
-        'num_dark':num_dark, 
-        'uid_bright':uid_bright,   
-        'num_bright':num_bright,    
-        'filter1':Filters.flt1.value,
-        'filter2':Filters.flt2.value,
-        'filter3':Filters.flt3.value,
-        'filter4':Filters.flt4.value, 
-        'mXBase':mXBase.position,
-        'mYBase':mYBase.position,
-        'mStackX':mStackX.position,
-        'mStackY':mStackY.position, 
-        'mStackZ':mStackZ.position,
-        'mPhi':mPhi.position,  
-        'mSlitsTop':mSlitsTop.position,     
-        'mSlitsBottom':mSlitsBottom.position,    
-        'mSlitsOutboard':mSlitsOutboard.position,   
-        'mSlitsInboard':mSlitsInboard.position,     
-        'mPitch':mPitch.position,       
-        'mRoll':mRoll.position,      
-        'mDexelaPhi':mDexelaPhi.position,       
-        'mQuestarX':mQuestarX.position,      
-        'mSigrayX':mSigrayX.position,    
-        'mSigrayY':mSigrayY.position,    
-        'mSigrayZ':mSigrayZ.position,    
-        'mSigrayPitch':mSigrayPitch.position,   
-        'mSigrayYaw':mSigrayYaw.position,     
-        'FastShutter':FastShutter.position,      
-       }
-
-    ds.attrs = md
-    
-    
-    return ds
-
-
-
-
-
-
-def scanner(det,
+            ax1.set_title('2D image')
             
-            exposure_time=0.5, 
-            
-            take_dark=False, 
-            num_dark = 10, 
-
-            
-            motor = mStackX,
-            motor_start = -0.1,
-            motor_stop =  0.1,
-            motor_nstep = 11,
-
-
-           ):
-
-    ds = xr.Dataset()
-
-    
-    if take_dark:
-        beam_off()
-        set_detector(det,exposure_time=exposure_time,num_images=num_dark)
-        uid_dark = RE(count([det],num=1))[0]
-        
-        if det.name == 'prosilica':
-            tiffs = get_tiff_list(hdr=db[-1])
-            t0 = fabio.open(tiffs[0]).data
-            img_dark = np.zeros((len(tiffs),t0.shape[0],t0.shape[1]))
-            for e,t in enumerate(tiffs):
-                img_dark[e,:,:] = fabio.open(tiffs[e]).data
+        ax2 = fig.add_subplot(2,2,2)
+        if jupyter_style_plot:
+            jupyter.plot2d(i2d_m,ax=ax2)
         else:
-            img_dark = np.array(list(db[-1].data('%s_image'%(det.name))))
+            da_2d = xr.DataArray(data=i2d_m.intensity,
+                                 coords=[i2d_m.azimuthal,i2d_m.radial],
+                                 dims=['azimuthal','radial'],
+                                 attrs={'unit':i2d_m.unit,
+                                        'xlabel':i2d_m.unit.label,
+                                        'ylabel':r"Azimuthal angle $\chi$ ($^{o}$)"})              
+            ds['i2d'] = da_2d 
+            ds['i2d'].plot.imshow(ax=ax2,robust=robust,cmap=cmap,vmin=vmin,vmax=vmax,
+                        yincrease=False,
+                        add_colorbar=False)  
+            ax2.set_ylabel(da_2d.attrs['ylabel'])
+          
+        ax2.set_xlim(radial_range)
+        ax2.set_xlabel(None)
+        ax2.set_xticklabels([])
+        if median_filter_size > 1:
+            ax2.set_title('Median_filtered, masked and regrouped')
+        else:
+            ax2.set_title('Masked and regrouped')
             
-#         tiff_cleaner(hdr=db[-1])
-        if len(img_dark.shape) == 4:
-            img_dark = img_dark.mean(axis=0)
-            img_dark = img_dark.mean(axis=0)
-        elif len(img_dark.shape) == 3:
-            img_dark = img_dark.mean(axis=0)
-            
-        da_dark = xr.DataArray(data=img_dark.astype('float32'),
-                  coords=[np.arange(img_dark.shape[0]), np.arange(img_dark.shape[1])],
-                  dims=['pixel_y', 'pixel_x'],attrs=None
-                 )
-        ds['dark'] = da_dark
-        dark_taken = 'true'
-        
-    else:
-        uid_dark = 'none'
-        num_dark = 'none'
-        dark_taken = 'false'
 
-    
-    beam_on()
-    set_detector(det,exposure_time=exposure_time,num_images=1)
-    uid_scan = RE(scan([det],motor,motor_start,motor_stop,motor_nstep))[0]
-    beam_off()
-    
-    if det.name == 'prosilica':
-        tiffs = get_tiff_list(hdr=db[-1])
-        t0 = fabio.open(tiffs[0]).data
-        imgs_scan = np.zeros((len(tiffs),t0.shape[0],t0.shape[1]))
-        for e,t in enumerate(tiffs):
-            imgs_scan[e,:,:] = fabio.open(tiffs[e]).data
-    else:
-        imgs_scan = np.array(list(db[-1].data('%s_image'%(det.name))))
+        ax3 = fig.add_subplot(2,2,4)
         
-    print(imgs_scan.shape)
+        if cif_file is not None:
+            xrd_plotter(ax=ax3,mp_id=mp_id,final=False,structure=None,
+                        str_file=cif_file,label=None,scale=cif_scale,unit=unit,
+                            marker='o',color='r',label_yshift=0,label_xshift=0.1,radial_range=radial_range,
+                            bottom=0,wl=ai.wavelength*10e9)  
+            ax3.text(0.8, 0.91, '| '+cif_file.split('/')[-1],verticalalignment='bottom', horizontalalignment='right', 
+                     transform=ax3.transAxes, color='r', fontsize=10)
+        elif mp_id is not None:
+            xrd_plotter(ax=ax3,mp_id=mp_id,final=False,structure=None,
+                        str_file=None,label=None,scale=cif_scale,unit=unit,
+                            marker='o',color='r',label_yshift=0,label_xshift=0.1,radial_range=radial_range,
+                            bottom=0,wl=ai.wavelength*10e9)  
+            ax3.text(0.8, 0.91, '| '+mp_id.split('/')[-1],verticalalignment='bottom', horizontalalignment='right', 
+                     transform=ax3.transAxes, color='r', fontsize=10)
+            
+        if cif_file2 is not None:
+            xrd_plotter(ax=ax3,mp_id=mp_id,final=False,structure=None,
+                        str_file=cif_file2,label=None,scale=cif_scale2,unit=unit,
+                            marker='d',color='g',label_yshift=0,label_xshift=0.1,radial_range=radial_range,
+                            bottom=0,wl=ai.wavelength*10e9)
+            ax3.text(0.8, 0.81, '| '+cif_file2.split('/')[-1],verticalalignment='bottom', horizontalalignment='right', 
+                     transform=ax3.transAxes, color='g', fontsize=10)
+        elif mp_id2 is not None:
+            xrd_plotter(ax=ax3,mp_id=mp_id2,final=False,structure=None,
+                        str_file=None,label=None,scale=cif_scale3,unit=unit,
+                            marker='d',color='g',label_yshift=0,label_xshift=0.1,radial_range=radial_range,
+                            bottom=0,wl=ai.wavelength*10e9)        
+            ax3.text(0.8, 0.81, '| '+mp_id2.split('/')[-1],verticalalignment='bottom', horizontalalignment='right', 
+                     transform=ax3.transAxes, color='g', fontsize=10)
+            
+        if cif_file3 is not None:
+            xrd_plotter(ax=ax3,mp_id=mp_id,final=False,structure=None,
+                        str_file=cif_file3,label=None,scale=cif_scale2,unit=unit,
+                            marker='d',color='b',label_yshift=0,label_xshift=0.1,radial_range=radial_range,
+                            bottom=0,wl=ai.wavelength*10e9)  
+            ax3.text(0.8, 0.71, '| '+cif_file3.split('/')[-1],verticalalignment='bottom', horizontalalignment='right', 
+                     transform=ax3.transAxes, color='b', fontsize=10)
+        elif mp_id3 is not None:
+            xrd_plotter(ax=ax3,mp_id=mp_id3,final=False,structure=None,
+                        str_file=None,label=None,scale=cif_scale3,unit=unit,
+                            marker='d',color='b',label_yshift=0,label_xshift=0.1,radial_range=radial_range,
+                            bottom=0,wl=ai.wavelength*10e9) 
+            ax3.text(0.8, 0.71, '| '+mp_id3.split('/')[-1],verticalalignment='bottom', horizontalalignment='right', 
+                     transform=ax3.transAxes, color='g', fontsize=10)
+
+            
+        if show_raw:
+            i1d = ai.integrate1d(img,npt=npt, mask=None, method=method, 
+                                    unit=unit, radial_range=radial_range)
+            jupyter.plot1d(i1d,ax=ax3,label='Raw')
+            ax3.set_xlabel(i1d_m.unit.label,loc='center')
+        if median_filter_size > 1:
+            jupyter.plot1d(i1d_m,ax=ax3,label='Median filtered and masked')
+            ax3.set_xlabel(i1d_m.unit.label,loc='center')
+        else:
+            jupyter.plot1d(i1d_m,ax=ax3,label='Masked')
+            ax3.set_xlabel(i1d_m.unit.label,loc='center')
+            
+        ax3.set_xlim(radial_range)
+        ax3.set_title(None)
+        
+        if ylogscale:
+            ax3.set_yscale('log')
+            ax3.set_ylim(bottom=vmin)
+            
+        if xlogscale:
+            ax3.set_xscale('log')
+            ax2.set_xscale('log')
+        
+        if show_raw:
+            ax3.legend(fontsize=8,loc=1)
+        else:
+            ax3.get_legend().remove()
+            
+        plt.tight_layout()
+        
+        if export_fig_as is not None:
+            plt.savefig(export_fig_as,dpi=196)
+            
+    if export_xy_as is not None: 
+        i1d = ai.integrate1d(img,npt,mask=mask,method=method,
+                        filename=export_xy_as,unit='2th_deg')
+        
+    ds.attrs = {'ai':ai,
+                'median_filter_size':median_filter_size,
+                'npt':npt,
+                'npt_azim':npt_azim,
+                'method':method,
+                'radial_range':radial_range,
+                'unit':unit,
+                'jupyter_style_plot':jupyter_style_plot,
+                'robust':robust,
+                'cmap':cmap,
+                'vmin':vmin,
+                'vmax':vmax,
+                'plot':plot,
+                'show_raw':show_raw,
+                'xlogscale':xlogscale,  
+                'ylogscale':ylogscale,  
+                'export_xy_as':export_xy_as,                  
+                'mp_id':mp_id,'mp_id2':mp_id2,'mp_id3':mp_id3,                   
+                'cif_file':cif_file,  
+                'cif_scale':cif_scale,
+                'cif_file2':cif_file2,  
+                'cif_scale2':cif_scale2,                
+                'cif_file3':cif_file3,  
+                'cif_scale3':cif_scale3,                
+                'export_fig_as':export_fig_as
+               }
+
+    return ds   
+        
     
-    if len(imgs_scan.shape) == 4:
-        imgs_scan = imgs_scan.mean(axis=1)
-        
-    motor_pos = np.linspace(motor_start,motor_stop,motor_nstep)
-        
-#     tiff_cleaner(hdr=db[-1])
+    
    
-    da_scan = xr.DataArray(data=imgs_scan.astype('float32'),
-              coords=[motor_pos,np.arange(imgs_scan.shape[1]), np.arange(imgs_scan.shape[2])],
-              dims=[motor.name,'pixel_y', 'pixel_x'],attrs=None
-             )
-    ds['scan'] = da_scan
-
-
-    md={'type': 'scan',
-        'time': time.time(),
-        'detector':det.name,
-        'exposure_time':exposure_time,
-        'dark_taken': dark_taken,
-        'uid_dark':uid_dark,
-        'num_dark':num_dark, 
-        'uid_bright':uid_scan,      
-        'filter1':Filters.flt1.value,
-        'filter2':Filters.flt2.value,
-        'filter3':Filters.flt3.value,
-        'filter4':Filters.flt4.value, 
-        'mXBase':mXBase.position,
-        'mYBase':mYBase.position,
-        'mStackX':mStackX.position,
-        'mStackY':mStackY.position, 
-        'mStackZ':mStackZ.position,
-        'mPhi':mPhi.position,  
-        'mSlitsTop':mSlitsTop.position,     
-        'mSlitsBottom':mSlitsBottom.position,    
-        'mSlitsOutboard':mSlitsOutboard.position,   
-        'mSlitsInboard':mSlitsInboard.position,     
-        'mPitch':mPitch.position,       
-        'mRoll':mRoll.position,      
-        'mDexelaPhi':mDexelaPhi.position,       
-        'mQuestarX':mQuestarX.position,      
-        'mSigrayX':mSigrayX.position,    
-        'mSigrayY':mSigrayY.position,    
-        'mSigrayZ':mSigrayZ.position,    
-        'mSigrayPitch':mSigrayPitch.position,   
-        'mSigrayYaw':mSigrayYaw.position,     
-        'FastShutter':FastShutter.position,      
-       }
-
-    ds.attrs = md
-    
-    
-    return ds
-
-
-
-
-
-
-
-    
-    
-def ds_saver(ds,save_to,save_str='_',zlib=False,dtype='float32'):
-    comp = dict(zlib=zlib, dtype=dtype)
-    encoding = {var: comp for var in ds.data_vars}
-    ds.to_netcdf('%s/%d_%s.nc'%(save_to,ds.attrs['time'],save_str), encoding=encoding)    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
-
-
-
-def set_detector(det,exposure_time=1.0,num_images=1,sleep=0.5):
-    if det.name == 'prosilica':
-        det.proc.enable_filter.put(0,wait=True)
-        det.cam.acquire_time.put(exposure_time)
-        det.cam.acquire_period.put(0.5)     
-        if num_images > 1:
-            print('Multiple mode doesnt work well!!!')
-            det.cam.stage_sigs['image_mode'] = 'Multiple'
-            det.cam.num_images.put(num_images)
-            det.cam.image_mode.put(1)       
-        else:
-            det.cam.stage_sigs['image_mode'] = 'Single'
-            det.cam.num_images.put(1)
-            det.cam.image_mode.put(0)
-        det.cam.trigger_mode.put(0)
-        det.unstage()
-        time.sleep(sleep)    
-        
-    elif det.name == 'blackfly':
-        det.proc.enable_filter.put(0,wait=True)
-        det.cam.acquire_time.put(exposure_time)    
-        det.cam.acquire_period.put(exposure_time)     
-        if num_images > 1:
-            det.cam.stage_sigs['image_mode'] = 'Multiple'
-            det.cam.num_images.put(num_images)
-            det.cam.image_mode.put(1)
-        else:
-            det.cam.stage_sigs['image_mode'] = 'Single'
-            det.cam.num_images.put(1)
-            det.cam.image_mode.put(0)
-        det.cam.trigger_mode.put(0)
-        det.unstage()
-        time.sleep(sleep)
-        
-    elif det.name == 'emergent':
-        det.proc.enable_filter.put(0,wait=True)
-        det.cam.acquire_time.put(exposure_time)
-        det.cam.acquire_period.put(exposure_time)             
-        if num_images > 1:        
-            det.cam.stage_sigs['image_mode'] = 'Multiple'    
-            det.cam.stage_sigs['num_images'] = num_images
-            det.cam.num_images.put(num_images)  
-            det.cam.image_mode.put(1)        
-        else:
-            det.cam.stage_sigs['image_mode'] = 'Single'
-            det.cam.num_images.put(1)
-            det.cam.image_mode.put(0)
-#         det.cam.trigger_mode.put(0)
-        det.unstage()
-        time.sleep(sleep)
-        
-    elif det.name == 'dexela':
-        det.proc.enable_filter.put(0,wait=True)
-        det.cam.stage_sigs['image_mode'] = 'Multiple'        
-        det.cam.stage_sigs['trigger_mode'] = 'Int. Free Run'        
-        det.cam.acquire_time.put(exposure_time)
-        det.cam.acquire_period.put(exposure_time+0.02)
-        if num_images > 1:
-            det.cam.stage_sigs['image_mode'] = 'Multiple'
-            det.cam.num_images.put(num_images)
-            det.cam.image_mode.put(1)
-        else:
-            det.cam.stage_sigs['image_mode'] = 'Single'
-            det.cam.num_images.put(1)
-            det.cam.image_mode.put(0)
-        det.cam.trigger_mode.put(0)
-        det.unstage()
-        time.sleep(sleep)
-
-
-
-RE(bps.mv(Filters.flt1, 'Out')) 
-RE(bps.mv(Filters.flt2, 'Out'))
-RE(bps.mv(Filters.flt3, 'Out'))
-RE(bps.mv(Filters.flt4, 'In'))
-""" 
