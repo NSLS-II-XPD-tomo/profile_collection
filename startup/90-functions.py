@@ -6,7 +6,7 @@ def configure_area_det(det,acq_time,acq_period=None,exposure=None,num_exposures=
     
     if det.cam.acquire.get() == 0:
         yield from bps.abs_set(det.cam.acquire, 1, wait=True)
-        
+
     if det.name == 'dexela': 
         yield from bps.abs_set(det.cam.acquire_time, max(acq_time,0.1), wait=True)
         acq_time_rbv = det.cam.acquire_time.get()  
@@ -19,24 +19,27 @@ def configure_area_det(det,acq_time,acq_period=None,exposure=None,num_exposures=
         acq_period_rbv = det.cam.acquire_period.get()
     else:
         if acq_period is None:
-            yield from bps.abs_set(det.cam.acquire_period, acq_time_rbv, wait=True)
+            
+            if det.name == 'blackfly':
+                yield from bps.abs_set(det.cam.acquire_period, 0.1, wait=False)
+            else:
+                yield from bps.abs_set(det.cam.acquire_period, acq_time_rbv, wait=True)
             acq_period_rbv = det.cam.acquire_period.get()
         else:
-            yield from bps.abs_set(det.cam.acquire_period, acq_period, wait=True)
+            if det.name == 'blackfly':
+                yield from bps.abs_set(det.cam.acquire_period, min(1,acq_period), wait=False)
+            else:
+                yield from bps.abs_set(det.cam.acquire_period, acq_period, wait=True)
             acq_period_rbv = det.cam.acquire_period.get()
-            
-            
+                  
     if exposure is None:
         exposure = acq_time_rbv*10
-
 
     num_frames = np.ceil(exposure / acq_time_rbv)
     
     yield from bps.abs_set(det.images_per_set, num_frames, wait=True)
     
     yield from bps.abs_set(det.number_of_sets, num_exposures, wait=True) 
-    
-    
     
     if det.name == 'emergent': 
         print(">>>%s is configured as:\n acq_time = %.3fmsec;  acq_period = %.3fmsec; exposure = %.3fmsec \
@@ -46,10 +49,7 @@ def configure_area_det(det,acq_time,acq_period=None,exposure=None,num_exposures=
         print(">>>%s is configured as:\n acq_time = %.3fsec;  acq_period = %.3fsec; exposure = %.3fsec \
     (num frames = %.2f); num_exposures = %d"%(det.name,acq_time_rbv,acq_period_rbv,exposure,num_frames,num_exposures))
     
-
-    
     return 
-
 
 
 
@@ -61,6 +61,8 @@ def md_getter():
     
     md = {}
     
+    md['time'] = time.time()
+    
     md['md_time'] = time.strftime('%Y/%m/%d - %H:%M:%S')
     
     
@@ -69,17 +71,19 @@ def md_getter():
     
     
     for m in [FastShutter,
+              mTopX, 
               mTopY, 
               mTopZ, 
               mPhi,
               ePhi,
               mRoll, 
               mPitch,
-              mBaseY,
+              mBaseX,
               mBaseY,
               mDexelaPhi,
               mQuestarX,
               mBeamStopY,
+              mHexapodsZ,
               mSlitsYGap,    
               mSlitsYCtr,    
               mSlitsXGap,    
@@ -88,7 +92,6 @@ def md_getter():
               mSlitsBottom,  
               mSlitsOutboard,
               mSlitsInboard, 
-              mHexapodsZ,
               mSigrayX,    
               mSigrayY,    
               mSigrayZ,    
@@ -98,7 +101,9 @@ def md_getter():
             md[m.name] = float('%.4f'%m.position)
 
     sSmartPodUnit.set(0)
+    time.sleep(0.2)
     sSmartPodSync.set(1)
+    time.sleep(0.2)
     for s in [
              sSmartPodUnit, 
              sSmartPodTrasZ,
@@ -113,7 +118,9 @@ def md_getter():
             md['%s_0'%s.name] = float('%.5f'%s.get())            
             
     sSmartPodUnit.set(1)
+    time.sleep(0.2)
     sSmartPodSync.set(1)
+    time.sleep(0.2)
     for s in [
              sSmartPodUnit, 
              sSmartPodTrasZ,
@@ -136,41 +143,47 @@ def md_getter():
 
 
 
+
               
               
               
               
-def beam_on(shutter_motor=FastShutter,sleep=0.1):
-    shutter_motor.move(-7,wait=True)
+def beam_on(shutter_motor=None,sleep=0.1):
+    if shutter_motor is None:
+        shutter_motor =  FastShutter
+    shutter_motor.move(0,wait=True)
     time.sleep(sleep)
 
-def beam_off(sleep=0.1):
+def beam_off(shutter_motor=None,sleep=0.1):
+    if shutter_motor is None:
+        shutter_motor =  FastShutter
     shutter_motor.move(-47,wait=True)
     time.sleep(sleep)
     
     
         
-        
-def pud_switcher(ipdu, state='off', sleep=1.0, verbose=False):
+            
+def pud_switcher(ipdu, state='off', verbose=False):
     
     pdus = (pdu1,pdu2,pdu3,pdu4)
     
-    if state.lower() == 'on' or state == 1:
+    if state == 'on' or state == 1:
         current_state = pdus[ipdu].get()
         if current_state == 1:
             if verbose:
                 print('it is already on!')
         else:
-            pdus[ipdu].put(1)
-            time.sleep(sleep)
-    if state.lower() == 'off' or state == 0:
+            pdus[ipdu].set(1)
+            time.sleep(0.1)
+
+    if state == 'off' or state == 0:
         current_state = pdus[ipdu].get()
         if current_state == 0:
             if verbose:
                 print('it is already off!')
         else:
-            pdus[ipdu].put(0)
-            time.sleep(sleep)
+            pdus[ipdu].set(0)
+            time.sleep(0.1)
             
             
 
@@ -239,81 +252,588 @@ def print_det_keys(det_class):
 
 
 
-def counter_2det(det1,acq_time1,det2,acq_time2,take_dark=False):
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+def counter_1det(det=None,
+                 acq_time=0.1,exposure=1,
+                 include_dark=False,
+                 include_flat=False,flat_motor=None,flat_motor_move=2.5,
+                 ):
 
-
-    if take_dark:
-        
-        #beam_off
-        #lights_off
-        RE(configure_area_det(det1,acq_time=acq_time1))
-        RE(configure_area_det(det2,acq_time=acq_time2)) 
-        uid_dark = RE(count([det1,det2]),md={'task':'count with two detectors - dark'})[0]
-        #beam_on
-        #lights_on
-        RE(configure_area_det(det1,acq_time=acq_time1))
-        RE(configure_area_det(det2,acq_time=acq_time2)) 
-        uid_light = RE(count([det1,det2]),md={'task':'count with two detectors - light'})[0]
-        #beam_off
-        #lights_off
-        
-        ds_dark = raw[uid_dark].primary.read()
-        ds_dark = ds_dark.rename({
-                             'dim_1': '%s_y'%det2.name, 
-                             'dim_2': '%s_x'%det2.name,
-                             'dim_4': '%s_y'%det1.name, 
-                             'dim_5': '%s_x'%det1.name,
-                             '%s_image'%det1.name:'%s_image_dark'%det1.name,
-                             '%s_image'%det2.name:'%s_image_dark'%det2.name,
-                             '%s_stats1_total'%det2.name:'%s_stats1_total_dark'%det2.name,
-                             '%s_stats1_total'%det2.name:'%s_stats1_total_dark'%det2.name,
-                            }).squeeze(('dim_0','dim_3','time'))        
-        ds_light = raw[uid_light].primary.read()
-        ds_light = ds_light.rename({          
-                             'dim_1': '%s_y'%det2.name, 
-                             'dim_2': '%s_x'%det2.name,
-                             'dim_4': '%s_y'%det1.name, 
-                             'dim_5': '%s_x'%det1.name,
-                            }).squeeze(('dim_0','dim_3','time'))    
-        
-        ds = xr.merge([ds_dark,ds_light],compat='override')
-        
-        ds.attrs = {}
-        ds.attrs['uid_dark'] = uid_dark
-        ds.attrs['uid_light'] = uid_light
-        ds.attrs['md_time'] = time.strftime('%Y/%m/%d - %H:%M:%S')
-        ds.attrs['det1'] = det1.name
-        ds.attrs['det2'] = det2.name
-
-        z = ds.attrs.copy()
-        z.update(md_getter())
-
-        ds.attrs = z        
-        
-
+    if include_dark:
+        beam_off()
+        print('\nINFO: Taking dark\n') 
+        RE(configure_area_det(det,acq_time=acq_time,exposure=exposure))
+        uid_dark = RE(count([det]),md={'task':'count-dark','acq_time':acq_time,'exposure':exposure})[0]
     else:
-        RE(configure_area_det(det1,acq_time=acq_time1))
-        RE(configure_area_det(det2,acq_time=acq_time2)) 
-        uid = RE(count([det1,det2]),md={'task':'count with two detectors'})[0]
+        uid_dark = 'none'
+        
+    if include_flat:
+        print('\nINFO: Taking flat\n') 
+        motor_current = flat_motor.position        
+        flat_motor.move(motor_current+flat_motor_move,wait=True)
+        print([motor_current,flat_motor.position])
+        beam_on()
+        RE(configure_area_det(det,acq_time=acq_time,exposure=exposure))
+        uid_flat = RE(count([det]),md={'task':'count-flat',
+                                       'acq_time':acq_time,
+                                       'exposure':exposure,
+                                       'flat_motor':flat_motor.name,
+                                       'flat_motor_move':flat_motor_move})[0]
+        beam_off()
+        flat_motor.move(motor_current,wait=True) 
+    else:
+        uid_flat = 'none'
+ 
+    beam_on()
+    RE(configure_area_det(det,acq_time=acq_time,exposure=exposure)) 
+    uid_light = RE(count([det]),md={'task':'count-light',
+                                    'acq_time':acq_time,
+                                    'exposure':exposure})[0]
+    beam_off()
+        
 
-        ds = raw[uid].primary.read()
-        ds = ds.rename({'dim_1': '%s_y'%det2.name, 'dim_2': '%s_x'%det2.name,
-                        'dim_4': '%s_y'%det1.name, 'dim_5': '%s_x'%det1.name}).squeeze(('dim_0','dim_3','time'))
-        ds.attrs = db[uid].start['md']
-        ds.attrs['uid'] = uid
-        ds.attrs['md_time'] = time.strftime('%Y/%m/%d - %H:%M:%S')
-        ds.attrs['det1'] = det1.name
-        ds.attrs['det2'] = det2.name
+    return uid_light, uid_flat, uid_dark
+
+
+
+
+def linescanner_1det(
+                    det = None,
+                    det_acq_time = 4,
+
+                    include_dark = False,
+                    det_exposure_dark = 4,    
+
+                    include_flat=False,
+                    flat_motor=None,
+                    flat_motor_move=2.5,
+    
+                    det_exposure_linescan = 4,
+                    motor = None,
+                    motor_start = None,
+                    motor_stop  = None,
+                    motor_nstep = 11,
+
+                    come_back = True,
+
+                    ):
+
+    if include_dark:
+        beam_off()
+        print('\n>>>> Taking dark\n') 
+        RE(configure_area_det(det,acq_time=det_acq_time,exposure=det_exposure_dark))
+        uid_dark = RE(count([det]),md={'task':'dark','acq_time':det_acq_time,'exposure':det_exposure_dark})[0]
+    else:
+        uid_dark = 'none'
+         
+    if include_flat:
+        print('\nINFO: Taking flat\n') 
+        motor_current = flat_motor.position        
+        flat_motor.move(motor_current+flat_motor_move,wait=True)
+        print([motor_current,flat_motor.position])
+        beam_on()
+        RE(configure_area_det(det,acq_time=det_acq_time,exposure=det_exposure_dark))
+        uid_flat = RE(count([det]),md={'task':'linescan-flat',
+                                       'acq_time':det_acq_time,
+                                       'exposure':det_exposure_dark,
+                                       'flat_motor':flat_motor.name,
+                                       'flat_motor_move':flat_motor_move})[0]
+        beam_off()
+        flat_motor.move(motor_current,wait=True) 
+    else:
+        uid_flat = 'none'        
+        
+    motor_current_pos = motor.position
+    print('>>> %s @ %.3f'%(motor.name,motor_current_pos))
+
+    RE(configure_area_det(det,acq_time=det_acq_time,exposure=det_exposure_linescan))
+    beam_on()
+    uid_linescan = RE(scan([det],motor,motor_start,motor_stop,motor_nstep),md={'task':'linescan','acq_time':det_acq_time,'exposure':det_exposure_linescan})[0]
+    beam_off()
+    
+    if come_back:
+        print('>>> Moving %s back to %.3f'%(motor.name,motor_current_pos))
+        motor.move(motor_current_pos)
+         
+    return uid_linescan, uid_flat, uid_dark
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+def gridscanner_1det(    
+                    det = None,
+                    det_acq_time = 2,
+                    include_dark = True,
+                    det_exposure_dark = 2,
+                    det_exposure_gridscan = 2,
+    
+                    include_flat=False,
+                    flat_motor=None,
+                    flat_motor_move=None,    
+
+                    #put slowest motor first
+                    motor1 = None,
+                    motor1_start = None,
+                    motor1_stop  = None,
+                    motor1_nstep = None,
+
+                    motor2 = None,
+                    motor2_start = None,
+                    motor2_stop  = None,
+                    motor2_nstep = None,
+
+                    snake=True,
+                    come_back = True,
+    
+                    ):
+
+
+
+
+
+    if include_dark:
+        print('\n>>>> Taking dark\n') 
+        beam_off()
+        RE(configure_area_det(det,acq_time=det_acq_time,exposure=det_exposure_dark))
+        uid_dark = RE(count([det]),md={'task':'dark','acq_time':det_acq_time,'exposure':det_exposure_dark})[0]
+    else:
+        uid_dark = 'none'
+         
+    if include_flat:
+        print('\nINFO: Taking flat\n') 
+        motor_current = flat_motor.position        
+        flat_motor.move(motor_current+flat_motor_move,wait=True)
+        print([motor_current,flat_motor.position])
+        beam_on()
+        RE(configure_area_det(det,acq_time=det_acq_time,exposure=det_exposure_dark))
+        uid_flat = RE(count([det]),md={'task':'linescan-flat',
+                                       'acq_time':det_acq_time,
+                                       'exposure':det_exposure_dark,
+                                       'flat_motor':flat_motor.name,
+                                       'flat_motor_move':flat_motor_move})[0]
+        beam_off()
+        flat_motor.move(motor_current,wait=True) 
+    else:
+        uid_flat = 'none' 
+
+    motor1_current_pos = motor1.position
+    print('>>> %s @ %.3f'%(motor1.name,motor1_current_pos))
+    motor2_current_pos = motor2.position
+    print('>>> %s @ %.3f'%(motor2.name,motor2_current_pos))
+
+
+    beam_on()
+    RE(configure_area_det(det,acq_time=det_acq_time,exposure=det_exposure_gridscan))
+
+    uid_gridscan = RE(grid_scan([det],
+                                motor1,motor1_start,motor1_stop,motor1_nstep,
+                                motor2,motor2_start,motor2_stop,motor2_nstep,
+                                snake_axes=snake),
+                                md={'task':'gridscan','acq_time':det_acq_time,'exposure':det_exposure_gridscan})[0]
+    beam_off()
+
+
+    if come_back:
+        print('>>> Moving %s back to %.3f'%(motor1.name,motor1_current_pos))
+        motor1.move(motor1_current_pos)
+        print('>>> Moving %s back to %.3f'%(motor2.name,motor2_current_pos))
+        motor2.move(motor2_current_pos)    
+    
+    return uid_gridscan, uid_flat, uid_dark    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+
+
+
+
+    
+    
+    
+    
+    
+def ds_maker(js,return_ds=False):
+    
+
+################################################################################################################ 
+########################################## count_1det ########################################################## 
+################################################################################################################    
+    if js['task'] == 'count_1det':  
+
+        ds = xr.Dataset()
+
+
+        if js['uid_dark'] != 'none':
+            ds_dark = raw[js['uid_dark']].primary.read()
+            hdr_dark = db[js['uid_dark']]
+            md_dark = hdr_dark.start['md']
+            da_dark = xr.DataArray(data=ds_dark['%s_image'%hdr_dark.start['detectors'][0]].squeeze(('time','dim_0')).values,
+                  coords=[ds_dark.dim_1, ds_dark.dim_2],
+                  dims=['%s_pixel_y'%(hdr_dark.start['detectors'][0]), '%s_pixel_x'%(hdr_dark.start['detectors'][0])],
+                  attrs={'uid':js['uid_dark'],
+                         'acq_time':md_dark['acq_time'],
+                         'exposure':md_dark['exposure'],
+                        }
+                 )
+            ds['dark'] = da_dark
+
+        if js['uid_flat'] != 'none':
+            ds_flat = raw[js['uid_flat']].primary.read()
+            hdr_flat = db[js['uid_flat']]
+            md_flat = hdr_flat.start['md']
+            try:
+                da_flat = xr.DataArray(data=ds_flat['%s_image'%hdr_flat.start['detectors'][0]].squeeze(('time','dim_0')).values,
+                      coords=[ds_flat.dim_1, ds_flat.dim_2],
+                      dims=['%s_pixel_y'%(hdr_flat.start['detectors'][0]), '%s_pixel_x'%(hdr_flat.start['detectors'][0])],
+                      attrs={'uid':js['uid_flat'],
+                             'acq_time':md_flat['acq_time'],
+                             'exposure':md_flat['exposure'],
+                             'flat_motor':md_flat['flat_motor'],
+                             'flat_motor_move':md_flat['flat_motor_move'],
+                            }
+                     )
+            except:
+                print('uid_flat does not contain motor information')
+                da_flat = xr.DataArray(data=ds_flat['%s_image'%hdr_flat.start['detectors'][0]].squeeze(('time','dim_0')).values,
+                      coords=[ds_flat.dim_1, ds_flat.dim_2],
+                      dims=['%s_pixel_y'%(hdr_flat.start['detectors'][0]), '%s_pixel_x'%(hdr_flat.start['detectors'][0])],
+                      attrs={'uid':js['uid_flat'],
+                             'acq_time':md_flat['acq_time'],
+                             'exposure':md_flat['exposure']
+                            }
+                     )                
+            ds['flat'] = da_flat
+
+        ds_light = raw[js['uid_light']].primary.read()
+        hdr_light = db[js['uid_light']]
+        md_light = hdr_light.start['md']
+        da_light = xr.DataArray(data=ds_light['%s_image'%hdr_light.start['detectors'][0]].squeeze(('time','dim_0')).values,
+              coords=[ds_light.dim_1, ds_light.dim_2],
+              dims=['%s_pixel_y'%(hdr_light.start['detectors'][0]), '%s_pixel_x'%(hdr_light.start['detectors'][0])],
+              attrs={'uid':js['uid_light'],
+                     'acq_time':md_light['acq_time'],
+                     'exposure':md_light['exposure'],
+                    }
+             )
+        ds['light'] = da_light
 
         z = ds.attrs.copy()
         z.update(md_getter())
+        ds.attrs = z        
 
-        ds.attrs = z
+        comp = dict(zlib=False)
+        encoding = {var: comp for var in ds.data_vars}
+        ds.to_netcdf(js['nc_path'], encoding=encoding)  
         
+        if return_ds:
+            print(js['nc_path'])
+            return ds
+        else:
+            return js['nc_path']   
+    
+    
+
+    
+    
+    
+################################################################################################################ 
+########################################## linescan_1det ####################################################### 
+################################################################################################################      
+    if js['task'] == 'linescan_1det': 
         
-    return ds
+        ds = xr.Dataset()
 
 
+        ds_linescan = raw[js['uid_linescan']].primary.read()
+        hdr_linescan = db[js['uid_linescan']]
+        md_linescan = hdr_linescan.start['md']
+        da_linescan = xr.DataArray(data=ds_linescan['%s_image'%hdr_linescan.start['detectors'][0]].squeeze('dim_0').values,
+                  coords=[ds_linescan['%s'%hdr_linescan.start['motors'][0]], ds_linescan.dim_1, ds_linescan.dim_2],
+                  dims=['%s'%(hdr_linescan.start['motors'][0]),'%s_pixel_y'%(hdr_linescan.start['detectors'][0]), '%s_pixel_x'%(hdr_linescan.start['detectors'][0])],
+                  attrs={'uid':js['uid_linescan'],
+                         'acq_time':md_linescan['acq_time'],
+                         'exposure':md_linescan['exposure'],
+                        }
+                 )
+        ds['linescan'] = da_linescan
+
+        da_stats1_total = xr.DataArray(data=ds_linescan['%s_stats1_total'%hdr_linescan.start['detectors'][0]].values,
+                  coords=[ds_linescan['%s'%hdr_linescan.start['motors'][0]]],
+                  dims=[hdr_linescan.start['motors'][0]],
+                 )
+        ds['stats1_total'] = da_stats1_total
+
+        ds = ds.assign_coords(time = ds_linescan.time)
+
+
+
+
+
+        if js['uid_dark'] != 'none':
+            ds_dark = raw[js['uid_dark']].primary.read()
+            hdr_dark = db[js['uid_dark']]
+            md_dark = hdr_dark.start['md']
+            da_dark = xr.DataArray(data=ds_dark['%s_image'%hdr_dark.start['detectors'][0]].squeeze(('time','dim_0')).values,
+                  coords=[ds_dark.dim_1, ds_dark.dim_2],
+                  dims=['%s_pixel_y'%(hdr_dark.start['detectors'][0]), '%s_pixel_x'%(hdr_dark.start['detectors'][0])],
+                  attrs={'uid':js['uid_dark'],
+                         'acq_time':md_dark['acq_time'],
+                         'exposure':md_dark['exposure'],
+                        }
+                 )
+            ds['dark'] = da_dark  
+            
+            
+            
+            
+
+        if js['uid_flat'] != 'none':
+            ds_flat = raw[js['uid_flat']].primary.read()
+            hdr_flat = db[js['uid_flat']]
+            md_flat = hdr_flat.start['md']
+            try:
+                da_flat = xr.DataArray(data=ds_flat['%s_image'%hdr_flat.start['detectors'][0]].squeeze(('time','dim_0')).values,
+                      coords=[ds_flat.dim_1, ds_flat.dim_2],
+                      dims=['%s_pixel_y'%(hdr_flat.start['detectors'][0]), '%s_pixel_x'%(hdr_flat.start['detectors'][0])],
+                      attrs={'uid':js['uid_flat'],
+                             'acq_time':md_flat['acq_time'],
+                             'exposure':md_flat['exposure'],
+                             'flat_motor':md_flat['flat_motor'],
+                             'flat_motor_move':md_flat['flat_motor_move'],
+                            }
+                     )
+            except:
+                print('uid_flat does not contain motor information')
+                da_flat = xr.DataArray(data=ds_flat['%s_image'%hdr_flat.start['detectors'][0]].squeeze(('time','dim_0')).values,
+                      coords=[ds_flat.dim_1, ds_flat.dim_2],
+                      dims=['%s_pixel_y'%(hdr_flat.start['detectors'][0]), '%s_pixel_x'%(hdr_flat.start['detectors'][0])],
+                      attrs={'uid':js['uid_flat'],
+                             'acq_time':md_flat['acq_time'],
+                             'exposure':md_flat['exposure']
+                            }
+                     )                
+            ds['flat'] = da_flat            
+            
+
+
+
+        z = ds.attrs.copy()
+        z.update(md_getter())
+        ds.attrs = z        
+
+
+
+        comp = dict(zlib=False)
+        encoding = {var: comp for var in ds.data_vars}
+        ds.to_netcdf(js['nc_path'], encoding=encoding)
+    
+    
+        if return_ds:
+            print(js['nc_path'])
+            return ds
+        else:
+            return js['nc_path']      
+    
+    
+    
+    
+    
+    
+################################################################################################################ 
+########################################## gridscan_1det_2motors ############################################### 
+################################################################################################################      
+
+    if js['task'] == 'gridscan_1det_2motors': 
+
+        ds = xr.Dataset()
+
+        ds_gridscan = raw[js['uid_gridscan']].primary.read()
+        hdr_gridscan = db[js['uid_gridscan']]
+        md_gridscan = hdr_gridscan.start['md']
+
+        if hdr_gridscan['start']['snaking'][1]:
+
+            data_ds = ds_gridscan['%s_image'%hdr_gridscan.start['detectors'][0]].squeeze('dim_0').values
+            data = np.zeros(((hdr_gridscan['start']['shape'][0],
+                              hdr_gridscan['start']['shape'][1],
+                              ds_gridscan.dim_1.shape[0],
+                              ds_gridscan.dim_2.shape[0],
+                             )))
+            c = 0
+            s = 0
+            for i in range(hdr_gridscan['start']['shape'][0]):        
+                if s == 0:
+                    for j in range(hdr_gridscan['start']['shape'][1]):
+                        data[i,j,:,:] = data_ds[c,:,:]
+                        c += 1
+                    s = 1
+                else:
+                    for j in range(hdr_gridscan['start']['shape'][1]):
+                        data[i,j-hdr_gridscan['start']['shape'][1]+1,:,:] = data_ds[c,:,:]
+                        c += 1
+                    s = 0
+
+        else:    
+            data_ds = ds_gridscan['%s_image'%hdr_gridscan.start['detectors'][0]].squeeze('dim_0').values
+
+            data = np.zeros(((hdr_gridscan['start']['shape'][0],
+                              hdr_gridscan['start']['shape'][1],
+                              ds_gridscan.dim_1.shape[0],
+                              ds_gridscan.dim_2.shape[0],
+                             )))
+
+            c = 0
+            for i in range(hdr_gridscan['start']['shape'][0]):
+                for j in range(hdr_gridscan['start']['shape'][1]):
+                    data[i,j,:,:] = data_ds[c,:,:]
+                    c += 1
+
+
+        da_gridscan = xr.DataArray(data=data,
+
+                  coords=[
+                        np.linspace(hdr_gridscan['start']['extents'][0][0],
+                                    hdr_gridscan['start']['extents'][0][1],
+                                    hdr_gridscan['start']['shape'][0]),
+                        np.linspace(hdr_gridscan['start']['extents'][1][0],
+                                    hdr_gridscan['start']['extents'][1][1],
+                                    hdr_gridscan['start']['shape'][1]),
+                          ds_gridscan.dim_1,
+                          ds_gridscan.dim_2],
+
+                  dims=[
+                      '%s'%hdr_gridscan.start['motors'][0],
+                        '%s'%hdr_gridscan.start['motors'][1],
+                        '%s_pixel_y'%(hdr_gridscan.start['detectors'][0]),
+                        '%s_pixel_x'%(hdr_gridscan.start['detectors'][0])],
+
+                  attrs={'uid':js['uid_gridscan'],
+                         'acq_time':md_gridscan['acq_time'],
+                         'exposure':md_gridscan['exposure'],
+                        }
+                 )
+        ds['gridscan'] = da_gridscan
+
+
+
+
+    #         da_stats1_total = xr.DataArray(data=ds_linescan['%s_stats1_total'%hdr_linescan.start['detectors'][0]].values,
+    #                   coords=[ds_linescan['%s'%hdr_linescan.start['motors'][0]]],
+    #                   dims=[hdr_linescan.start['motors'][0]],
+    #                  )
+    #         ds['stats1_total'] = da_stats1_total
+
+    #         ds = ds.assign_coords(time = ds_linescan.time)
+
+
+
+
+
+        if js['uid_dark'] != 'none':
+            ds_dark = raw[js['uid_dark']].primary.read()
+            hdr_dark = db[js['uid_dark']]
+            md_dark = hdr_dark.start['md']
+            da_dark = xr.DataArray(data=ds_dark['%s_image'%hdr_dark.start['detectors'][0]].squeeze(('time','dim_0')).values,
+                  coords=[ds_dark.dim_1, ds_dark.dim_2],
+                  dims=['%s_pixel_y'%(hdr_dark.start['detectors'][0]), '%s_pixel_x'%(hdr_dark.start['detectors'][0])],
+                  attrs={'uid':js['uid_dark'],
+                         'acq_time':md_dark['acq_time'],
+                         'exposure':md_dark['exposure'],
+                        }
+                 )
+            ds['dark'] = da_dark  
+
+
+
+
+
+        if js['uid_flat'] != 'none':
+            ds_flat = raw[js['uid_flat']].primary.read()
+            hdr_flat = db[js['uid_flat']]
+            md_flat = hdr_flat.start['md']
+            try:
+                da_flat = xr.DataArray(data=ds_flat['%s_image'%hdr_flat.start['detectors'][0]].squeeze(('time','dim_0')).values,
+                      coords=[ds_flat.dim_1, ds_flat.dim_2],
+                      dims=['%s_pixel_y'%(hdr_flat.start['detectors'][0]), '%s_pixel_x'%(hdr_flat.start['detectors'][0])],
+                      attrs={'uid':js['uid_flat'],
+                             'acq_time':md_flat['acq_time'],
+                             'exposure':md_flat['exposure'],
+                             'flat_motor':md_flat['flat_motor'],
+                             'flat_motor_move':md_flat['flat_motor_move'],
+                            }
+                     )
+            except:
+                print('uid_flat does not contain motor information')
+                da_flat = xr.DataArray(data=ds_flat['%s_image'%hdr_flat.start['detectors'][0]].squeeze(('time','dim_0')).values,
+                      coords=[ds_flat.dim_1, ds_flat.dim_2],
+                      dims=['%s_pixel_y'%(hdr_flat.start['detectors'][0]), '%s_pixel_x'%(hdr_flat.start['detectors'][0])],
+                      attrs={'uid':js['uid_flat'],
+                             'acq_time':md_flat['acq_time'],
+                             'exposure':md_flat['exposure']
+                            }
+                     )                
+            ds['flat'] = da_flat            
+
+
+
+
+        z = ds.attrs.copy()
+        z.update(md_getter())
+        ds.attrs = z        
+
+
+
+        comp = dict(zlib=False)
+        encoding = {var: comp for var in ds.data_vars}
+        ds.to_netcdf(js['nc_path'], encoding=encoding)
+
+
+        if return_ds:
+            print(js['nc_path'])
+            return ds
+        else:
+            return js['nc_path']   
 
     
     
