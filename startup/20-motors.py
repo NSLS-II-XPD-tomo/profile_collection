@@ -1,5 +1,4 @@
- 
-from ophyd import EpicsMotor
+print(f'Loading {__file__}')
 
 
 ## Huber Stack
