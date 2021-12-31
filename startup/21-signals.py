@@ -1,5 +1,4 @@
-import ophyd
-from ophyd import EpicsSignal
+print(f'Loading {__file__}')
 
 
 # Smartpod for hexapods
@@ -27,5 +26,5 @@ pdu2  = EpicsSignal('XF:28IDD-CT{PDU:1}Sw:2-Sel',name='pdu2')
 pdu3  = EpicsSignal('XF:28IDD-CT{PDU:1}Sw:3-Sel',name='pdu3')
 pdu4  = EpicsSignal('XF:28IDD-CT{PDU:1}Sw:4-Sel',name='pdu4')
 
-from ophyd import EpicsSignalRO 
+
 ring_current = EpicsSignalRO('SR:OPS-BI{DCCT:1}I:Real-I', name='ring_current')

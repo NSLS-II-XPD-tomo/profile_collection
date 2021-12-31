@@ -1,3 +1,5 @@
+print(f'Loading {__file__}')
+
 
 # Some of the code below is from
 # https://github.com/NSLS-II-HXN/hxntools/blob/master/hxntools/detectors

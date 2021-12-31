@@ -1,3 +1,6 @@
+print(f'Loading {__file__}')
+
+
 
 def configure_area_det(det,acq_time,acq_period=None,exposure=None,num_exposures=1):
     
