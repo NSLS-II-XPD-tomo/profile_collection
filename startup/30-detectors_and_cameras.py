@@ -164,7 +164,7 @@ class DexelaDetectorCam(CamBase):
             if cpt is self:
                 continue
             if hasattr(cpt, 'ensure_nonblocking'):
-                #print(f'cpt: {cpt.name}')
+                print(f'cpt: {cpt.name}')
                 cpt.ensure_nonblocking()
 
 class DexelaDetector(AreaDetector):
@@ -197,16 +197,16 @@ class XPDTOMODexela(DexelaDetector):
 
     pixel_size = Component(Signal, value=.000075, kind='config')
     detector_type = Component(Signal, value='Dexela 2923', kind='config')
-    stats1 = Component(StatsPluginV33, 'Stats1:')
-    stats2 = Component(StatsPluginV33, 'Stats2:')
-    stats3 = Component(StatsPluginV33, 'Stats3:')
-    stats4 = Component(StatsPluginV33, 'Stats4:')
-    stats5 = Component(StatsPluginV33, 'Stats5:', kind = 'hinted')
+    stats1 = Component(StatsPluginV33, 'Stats1:', kind = 'hinted')
+    #stats2 = Component(StatsPluginV33, 'Stats2:')
+    #stats3 = Component(StatsPluginV33, 'Stats3:')
+    #stats4 = Component(StatsPluginV33, 'Stats4:')
+    #stats5 = Component(StatsPluginV33, 'Stats5:', kind = 'hinted')
 
     roi1 = Component(ROIPlugin, 'ROI1:')
-    roi2 = Component(ROIPlugin, 'ROI2:')
-    roi3 = Component(ROIPlugin, 'ROI3:')
-    roi4 = Component(ROIPlugin, 'ROI4:')
+    #roi2 = Component(ROIPlugin, 'ROI2:')
+    #roi3 = Component(ROIPlugin, 'ROI3:')
+    #roi4 = Component(ROIPlugin, 'ROI4:')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -280,16 +280,16 @@ class XPDTOMOBlackfly(BlackflyDetector):
 
     pixel_size = Component(Signal, value=.000005, kind='config') #unknown
     detector_type = Component(Signal, value='Blackfly S', kind='config')
-    stats1 = Component(StatsPluginV33, 'Stats1:')
-    stats2 = Component(StatsPluginV33, 'Stats2:')
-    stats3 = Component(StatsPluginV33, 'Stats3:')
-    stats4 = Component(StatsPluginV33, 'Stats4:')
-    stats5 = Component(StatsPluginV33, 'Stats5:', kind = 'hinted')
+    stats1 = Component(StatsPluginV33, 'Stats1:', kind = 'hinted')
+    #stats2 = Component(StatsPluginV33, 'Stats2:')
+    #stats3 = Component(StatsPluginV33, 'Stats3:')
+    #stats4 = Component(StatsPluginV33, 'Stats4:')
+    #stats5 = Component(StatsPluginV33, 'Stats5:', kind = 'hinted')
 
     roi1 = Component(ROIPlugin, 'ROI1:')
-    roi2 = Component(ROIPlugin, 'ROI2:')
-    roi3 = Component(ROIPlugin, 'ROI3:')
-    roi4 = Component(ROIPlugin, 'ROI4:')
+    #roi2 = Component(ROIPlugin, 'ROI2:')
+    #roi3 = Component(ROIPlugin, 'ROI3:')
+    #roi4 = Component(ROIPlugin, 'ROI4:')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -323,7 +323,23 @@ except Exception as exc:
 #=============================Emergent====================================#
 #=========================================================================# 
 class EmergentDetectorCam(CamBase):
-    pass
+
+    wait_for_plugins = Component(EpicsSignal, 'WaitForPlugins',
+                           string=True, kind='config')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.stage_sigs['wait_for_plugins'] = 'Yes'
+
+    def ensure_nonblocking(self):
+        self.stage_sigs['wait_for_plugins'] = 'Yes'
+        for c in self.parent.component_names:
+            cpt = getattr(self.parent, c)
+            if cpt is self:
+                continue
+            if hasattr(cpt, 'ensure_nonblocking'):
+                print(f'cpt: {cpt.name}')
+                cpt.ensure_nonblocking()
 
 class EmergentDetector(AreaDetector):
     cam = Component(EmergentDetectorCam, 'cam1:',
@@ -355,16 +371,16 @@ class XPDTOMOEmergent(EmergentDetector):
 
     pixel_size = Component(Signal, value=.000005, kind='config') #unknown
     detector_type = Component(Signal, value='Emergent', kind='config')
-    stats1 = Component(StatsPluginV33, 'Stats1:')
-    stats2 = Component(StatsPluginV33, 'Stats2:')
-    stats3 = Component(StatsPluginV33, 'Stats3:')
-    stats4 = Component(StatsPluginV33, 'Stats4:')
-    stats5 = Component(StatsPluginV33, 'Stats5:', kind = 'hinted')
+    stats1 = Component(StatsPluginV33, 'Stats1:', kind = 'hinted')
+    #stats2 = Component(StatsPluginV33, 'Stats2:')
+    #stats3 = Component(StatsPluginV33, 'Stats3:')
+    #stats4 = Component(StatsPluginV33, 'Stats4:')
+    #stats5 = Component(StatsPluginV33, 'Stats5:', kind = 'hinted')
 
     roi1 = Component(ROIPlugin, 'ROI1:')
-    roi2 = Component(ROIPlugin, 'ROI2:')
-    roi3 = Component(ROIPlugin, 'ROI3:')
-    roi4 = Component(ROIPlugin, 'ROI4:')
+    #roi2 = Component(ROIPlugin, 'ROI2:')
+    #roi3 = Component(ROIPlugin, 'ROI3:')
+    #roi4 = Component(ROIPlugin, 'ROI4:')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -388,7 +404,8 @@ try:
     emergent_c.cam.bin_y.kind = 'config'
     emergent_c.detector_type.kind = 'config'
     emergent_c.stats1.kind = 'hinted'
-    emergent_c.stats1.total.kind = 'hinted'  
+    emergent_c.stats1.total.kind = 'hinted' 
+    emergent_c.cam.ensure_nonblocking()      
 except Exception as exc:
     print(exc)
     print('\n unable to initiate emergent camera. Something is wrong... ')
@@ -438,16 +455,16 @@ class XPDTOMOProsilica(ProsilicaDetector):
 
     pixel_size = Component(Signal, value=.000005, kind='config') #unknown
     detector_type = Component(Signal, value='Prosilica', kind='config')
-    stats1 = Component(StatsPluginV33, 'Stats1:')
-    stats2 = Component(StatsPluginV33, 'Stats2:')
-    stats3 = Component(StatsPluginV33, 'Stats3:')
-    stats4 = Component(StatsPluginV33, 'Stats4:')
-    stats5 = Component(StatsPluginV33, 'Stats5:', kind = 'hinted')
+    stats1 = Component(StatsPluginV33, 'Stats1:', kind = 'hinted')
+    #stats2 = Component(StatsPluginV33, 'Stats2:')
+    #stats3 = Component(StatsPluginV33, 'Stats3:')
+    #stats4 = Component(StatsPluginV33, 'Stats4:')
+    #stats5 = Component(StatsPluginV33, 'Stats5:', kind = 'hinted')
 
     roi1 = Component(ROIPlugin, 'ROI1:')
-    roi2 = Component(ROIPlugin, 'ROI2:')
-    roi3 = Component(ROIPlugin, 'ROI3:')
-    roi4 = Component(ROIPlugin, 'ROI4:')
+    #roi2 = Component(ROIPlugin, 'ROI2:')
+    #roi3 = Component(ROIPlugin, 'ROI3:')
+    #roi4 = Component(ROIPlugin, 'ROI4:')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -475,6 +492,24 @@ except Exception as exc:
     print('\n unable to initiate prosilca detector. Something is wrong... ')
     pass
 
+
+
+
+
+"""
+
+/xx//site-packages/ophyd/areadetector/detectors.py
+    def make_data_key(self):
+        source = 'PV:{}'.format(self.prefix)
+        # This shape is expected to match arr.shape for the array.
+        #shape = (self.cam.num_images.get(),
+                 #self.cam.array_size.array_size_y.get(),
+                 #self.cam.array_size.array_size_x.get())
+        #if proc plugin is being used
+        shape = (self.number_of_sets.get(),
+                 self.cam.array_size.array_size_y.get(),
+                 self.cam.array_size.array_size_x.get())
+"""
 
 
 
