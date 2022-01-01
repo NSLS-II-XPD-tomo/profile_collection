@@ -1,7 +1,6 @@
 print(f'Loading {__file__}')
 
 
-
 def configure_area_det(det,acq_time,acq_period=None,exposure=None,num_exposures=1):
     
     if det.name == 'prosilica':
@@ -468,7 +467,7 @@ def gridscanner_1det(
     
     
     
-def ds_maker(js,return_ds=False):
+def ds_maker(js,return_ds=False,run_md_getter=True):
     
 
 ################################################################################################################ 
@@ -532,9 +531,10 @@ def ds_maker(js,return_ds=False):
              )
         ds['light'] = da_light
 
-        z = ds.attrs.copy()
-        z.update(md_getter())
-        ds.attrs = z        
+        if run_md_getter:
+            z = ds.attrs.copy()
+            z.update(md_getter())
+            ds.attrs = z        
 
         comp = dict(zlib=False)
         encoding = {var: comp for var in ds.data_vars}
@@ -622,9 +622,10 @@ def ds_maker(js,return_ds=False):
                      )                
             ds['flat'] = da_flat            
             
-        z = ds.attrs.copy()
-        z.update(md_getter())
-        ds.attrs = z        
+        if run_md_getter:
+            z = ds.attrs.copy()
+            z.update(md_getter())
+            ds.attrs = z        
 
         comp = dict(zlib=False)
         encoding = {var: comp for var in ds.data_vars}
@@ -761,9 +762,10 @@ def ds_maker(js,return_ds=False):
                      )                
             ds['flat'] = da_flat            
 
-        z = ds.attrs.copy()
-        z.update(md_getter())
-        ds.attrs = z        
+        if run_md_getter:
+            z = ds.attrs.copy()
+            z.update(md_getter())
+            ds.attrs = z         
 
         comp = dict(zlib=False)
         encoding = {var: comp for var in ds.data_vars}
