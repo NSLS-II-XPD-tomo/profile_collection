@@ -467,7 +467,7 @@ def gridscanner_1det(
     
     
     
-def ds_maker(js,return_ds=False,run_md_getter=True):
+def ds_maker(js,return_ds=False,run_md_getter=True,dtype=None):
     
 
 ################################################################################################################ 
@@ -489,7 +489,10 @@ def ds_maker(js,return_ds=False,run_md_getter=True):
                          'exposure':md_dark['exposure'],
                         }
                  )
-            ds['dark'] = da_dark
+            if dtype is None:
+                ds['dark'] = da_dark
+            else:
+                ds['dark'] = da_dark.astype(dtype,copy=False)
 
         if js['uid_flat'] != 'none':
             ds_flat = raw[js['uid_flat']].primary.read()
@@ -516,7 +519,10 @@ def ds_maker(js,return_ds=False,run_md_getter=True):
                              'exposure':md_flat['exposure']
                             }
                      )                
-            ds['flat'] = da_flat
+            if dtype is None:
+                ds['flat'] = da_flat
+            else:
+                ds['flat'] = da_flat.astype(dtype,copy=False)
 
         ds_light = raw[js['uid_light']].primary.read()
         hdr_light = db[js['uid_light']]
@@ -529,7 +535,10 @@ def ds_maker(js,return_ds=False,run_md_getter=True):
                      'exposure':md_light['exposure'],
                     }
              )
-        ds['light'] = da_light
+        if dtype is None:
+            ds['light'] = da_light
+        else:
+            ds['light'] = da_light.astype(dtype,copy=False)
 
         if run_md_getter:
             z = ds.attrs.copy()
@@ -569,7 +578,10 @@ def ds_maker(js,return_ds=False,run_md_getter=True):
                          'exposure':md_linescan['exposure'],
                         }
                  )
-        ds['linescan'] = da_linescan
+        if dtype is None:
+            ds['linescan'] = da_linescan
+        else:
+            ds['linescan'] = da_linescan.astype(dtype,copy=False)
 
         da_stats1_total = xr.DataArray(data=ds_linescan['%s_stats1_total'%hdr_linescan.start['detectors'][0]].values,
                   coords=[ds_linescan['%s'%hdr_linescan.start['motors'][0]]],
@@ -592,7 +604,10 @@ def ds_maker(js,return_ds=False,run_md_getter=True):
                          'exposure':md_dark['exposure'],
                         }
                  )
-            ds['dark'] = da_dark  
+            if dtype is None:
+                ds['dark'] = da_dark
+            else:
+                ds['dark'] = da_dark.astype(dtype,copy=False) 
             
 
         if js['uid_flat'] != 'none':
@@ -620,7 +635,10 @@ def ds_maker(js,return_ds=False,run_md_getter=True):
                              'exposure':md_flat['exposure']
                             }
                      )                
-            ds['flat'] = da_flat            
+            if dtype is None:
+                ds['flat'] = da_flat
+            else:
+                ds['flat'] = da_flat.astype(dtype,copy=False)           
             
         if run_md_getter:
             z = ds.attrs.copy()
@@ -716,8 +734,10 @@ def ds_maker(js,return_ds=False,run_md_getter=True):
                          'exposure':md_gridscan['exposure'],
                         }
                  )
-        ds['gridscan'] = da_gridscan
-
+        if dtype is None:
+            ds['gridscan'] = da_gridscan
+        else:
+            ds['gridscan'] = da_gridscan.astype(dtype,copy=False)   
 
 
         if js['uid_dark'] != 'none':
@@ -732,7 +752,10 @@ def ds_maker(js,return_ds=False,run_md_getter=True):
                          'exposure':md_dark['exposure'],
                         }
                  )
-            ds['dark'] = da_dark  
+            if dtype is None:
+                ds['dark'] = da_dark
+            else:
+                ds['dark'] = da_dark.astype(dtype,copy=False)  
 
 
         if js['uid_flat'] != 'none':
@@ -760,7 +783,10 @@ def ds_maker(js,return_ds=False,run_md_getter=True):
                              'exposure':md_flat['exposure']
                             }
                      )                
-            ds['flat'] = da_flat            
+            if dtype is None:
+                ds['flat'] = da_flat
+            else:
+                ds['flat'] = da_flat.astype(dtype,copy=False)             
 
         if run_md_getter:
             z = ds.attrs.copy()
@@ -865,6 +891,8 @@ def integrator(img,ai,mask,
                flip_mask=False,
                median_filter_size=-1,
                
+               figsize=(12,6),dpi=96,
+               
                npt=4000,npt_azim=360,method='csr',radial_range=(1,10),unit="q_A^-1",
                
                jupyter_style_plot=False,robust=True,cmap="inferno",vmin=None,vmax=None,
@@ -904,7 +932,7 @@ def integrator(img,ai,mask,
     
     if plot:
         
-        fig = plt.figure(figsize=(12,6),dpi=96)
+        fig = plt.figure(figsize=figsize,dpi=dpi)
         
         i2d_m = ai.integrate2d(img, npt_rad=npt, npt_azim=npt_azim, mask=mask, method=method,
                                 unit=unit, radial_range=radial_range)        
