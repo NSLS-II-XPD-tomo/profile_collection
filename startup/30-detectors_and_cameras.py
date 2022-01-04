@@ -39,11 +39,6 @@ from ophyd.device import DeviceStatus
 
 
 
-
-
-
-
-
 class XPDTIFFPlugin(TIFFPlugin, FileStoreTIFFSquashing,
                     FileStoreIterativeWrite):
     pass
@@ -117,10 +112,7 @@ class ContinuousAcquisitionTrigger(BlueskyInterface):
             self._status = None
             self._save_started = False
             
-            
-            
-            
-            
+                  
 #=========================================================================#
 #=============================Dexela======================================#
 #=========================================================================#            
@@ -166,7 +158,7 @@ class DexelaDetectorCam(CamBase):
             if cpt is self:
                 continue
             if hasattr(cpt, 'ensure_nonblocking'):
-                print(f'cpt: {cpt.name}')
+#                 print(f'cpt: {cpt.name}')
                 cpt.ensure_nonblocking()
 
 class DexelaDetector(AreaDetector):
@@ -340,7 +332,7 @@ class EmergentDetectorCam(CamBase):
             if cpt is self:
                 continue
             if hasattr(cpt, 'ensure_nonblocking'):
-                print(f'cpt: {cpt.name}')
+#                 print(f'cpt: {cpt.name}')
                 cpt.ensure_nonblocking()
 
 class EmergentDetector(AreaDetector):
@@ -412,12 +404,6 @@ except Exception as exc:
     print(exc)
     print('\n unable to initiate emergent camera. Something is wrong... ')
     pass
-
-
-        
-        
-        
-
 
 
 
@@ -493,9 +479,6 @@ except Exception as exc:
     print(exc)
     print('\n unable to initiate prosilca detector. Something is wrong... ')
     pass
-
-
-
 
 
 """
