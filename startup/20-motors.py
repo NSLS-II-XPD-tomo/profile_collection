@@ -1,6 +1,4 @@
- 
-from ophyd import EpicsMotor
-
+print(f'Loading {__file__}')
 
 ## Huber Stack
 mTopX   =  EpicsMotor('XF:28IDD-ES:2{Stg:Stack-Ax:Xfine}Mtr',name='mTopX')
