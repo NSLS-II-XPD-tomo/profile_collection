@@ -179,7 +179,7 @@ class XPDTOMODexela(DexelaDetector):
              cam_name='cam', 
              proc_name='proc',  
              read_attrs=[],
-             root='/nsls2/data/xpd/tomo/legacy/raw/')
+             root='/nsls2/data/xpd-new/legacy/raw/xpdd/')
 
     proc = Component(ProcessPlugin, 'Proc1:')
 
@@ -223,8 +223,9 @@ try:
     dexela_c = DexelaContinuous(dexela_pv_prefix, name='dexela',
                                  read_attrs=['tiff', 'stats1.total'],
                                  plugin_name='tiff')
-    dexela_c.tiff.read_path_template = f'/nsls2/data/xpd/tomo/legacy/raw/{dexela_c.name}_data/%Y/%m/%d/'
-    dexela_c.tiff.write_path_template = f'J:\\dexela_data\\%Y\\%m\\%d\\'
+
+    dexela_c.tiff.read_path_template = f'/nsls2/data/xpd-new/legacy/raw/xpdd/{dexela_c.name}_data/%Y/%m/%d/'
+    dexela_c.tiff.write_path_template = f'J:\\%Y\\%m\\%d\\'
     dexela_c.cam.bin_x.kind = 'config'
     dexela_c.cam.bin_y.kind = 'config'
     dexela_c.detector_type.kind = 'config'
