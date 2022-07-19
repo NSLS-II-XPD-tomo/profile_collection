@@ -10,7 +10,7 @@ def configure_area_det(det,acq_time,acq_period=None,exposure=None,num_exposures=
         yield from bps.abs_set(det.cam.acquire, 1, wait=True)
 
     if det.name == 'dexela': 
-        yield from bps.abs_set(det.cam.acquire_time, max(acq_time,0.1), wait=True)
+        yield from bps.abs_set(det.cam.acquire_time, max(acq_time,0.0625), wait=True)
         acq_time_rbv = det.cam.acquire_time.get()  
     else:
         yield from bps.abs_set(det.cam.acquire_time, acq_time, wait=True)
