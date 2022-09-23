@@ -29,3 +29,7 @@ xspress3_class = build_xspress3_class(
     )
 
 xs3 = xspress3_class(prefix=xs3_pv_prefix, name="xs3")
+
+xs3.channel01.kind = "normal"
+xs3.channel01.data.kind = "normal"
+# Check the status of the fields with `xs3.summary()`
