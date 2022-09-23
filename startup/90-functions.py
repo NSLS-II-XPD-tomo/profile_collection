@@ -69,6 +69,8 @@ def configure_area_det(det,acq_time,acq_period=None,exposure=None,num_exposures=
 
 """
 Simulatanous rocking multiple motors while detector is collecting
+Credit: Tom Caswell
+Not tested.
 """
 
 import asyncio

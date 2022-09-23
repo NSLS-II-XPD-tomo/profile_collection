@@ -179,7 +179,8 @@ class XPDTOMODexela(DexelaDetector):
              cam_name='cam', 
              proc_name='proc',  
              read_attrs=[],
-             root='/nsls2/data/xpd-new/legacy/raw/xpdd/')
+             # root='/nsls2/data/xpd-new/legacy/raw/xpdd/',
+                    )
 
     proc = Component(ProcessPlugin, 'Proc1:')
 
@@ -264,7 +265,8 @@ class XPDTOMOBlackfly(BlackflyDetector):
              cam_name='cam',  
              proc_name='proc',
              read_attrs=[],
-             root='/nsls2/data/xpd-new/legacy/raw/xpdd/')
+             # root='/nsls2/data/xpd-new/legacy/raw/xpdd/',
+                    )
 
     proc = Component(ProcessPlugin, 'Proc1:')
 
@@ -364,7 +366,8 @@ class XPDTOMOEmergent(EmergentDetector):
              cam_name='cam',  
              proc_name='proc', 
              read_attrs=[],
-             root='/nsls2/data/xpd-new/legacy/raw/xpdd/')
+             # root='/nsls2/data/xpd-new/legacy/raw/xpdd/',
+                    )
 
     proc = Component(ProcessPlugin, 'Proc1:')
 
@@ -389,6 +392,7 @@ class XPDTOMOEmergent(EmergentDetector):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.proc.stage_sigs.update([(self.cam.acquire, 1)])
         self.stage_sigs.update([(self.cam.trigger_mode, 'Internal')])
         self.stage_sigs.update([(self.cam.data_type, 'UInt16')])
         self.stage_sigs.update([(self.cam.color_mode, 'Mono')])
@@ -453,7 +457,8 @@ class XPDTOMOProsilica(ProsilicaDetector):
              cam_name='cam',  
              proc_name='proc',
              read_attrs=[],
-             root='/nsls2/data/xpd-new/legacy/raw/xpdd/')
+             # root='/nsls2/data/xpd-new/legacy/raw/xpdd/',
+                    )
 
     proc = Component(ProcessPlugin, 'Proc1:')
 
@@ -541,7 +546,8 @@ class XPDTOMOAlliedVision(AlliedVisionDetector):
              cam_name='cam',  
              proc_name='proc',
              read_attrs=[],
-             root='/nsls2/data/xpd-new/legacy/raw/xpdd/')
+             # root='/nsls2/data/xpd-new/legacy/raw/xpdd/',
+                    )
 
     proc = Component(ProcessPlugin, 'Proc1:')
 
