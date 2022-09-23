@@ -131,3 +131,20 @@ dmypy.json
 
 #kate
 *.kate-swp
+
+#Dolphin browser files
+.directory/
+.directory
+
+log/
+pid/
+security/
+db/
+static/
+history*.sqlite
+
+
+
+
+
+
