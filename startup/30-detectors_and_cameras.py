@@ -179,7 +179,8 @@ class XPDTOMODexela(DexelaDetector):
              cam_name='cam', 
              proc_name='proc',  
              read_attrs=[],
-             root='/nsls2/data/xpd/tomo/legacy/raw/')
+             # root='/nsls2/data/xpd-new/legacy/raw/xpdd/',
+                    )
 
     proc = Component(ProcessPlugin, 'Proc1:')
 
@@ -205,6 +206,7 @@ class XPDTOMODexela(DexelaDetector):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.stage_sigs.update([(self.cam.trigger_mode, 'Int. Software')])
+        self.proc.stage_sigs.update([(self.proc.filter_type, 'RecursiveAve')])
     
     
 class DexelaContinuous(ContinuousAcquisitionTrigger, XPDTOMODexela):
@@ -223,8 +225,9 @@ try:
     dexela_c = DexelaContinuous(dexela_pv_prefix, name='dexela',
                                  read_attrs=['tiff', 'stats1.total'],
                                  plugin_name='tiff')
-    dexela_c.tiff.read_path_template = f'/nsls2/data/xpd/tomo/legacy/raw/{dexela_c.name}_data/%Y/%m/%d/'
-    dexela_c.tiff.write_path_template = f'J:\\dexela_data\\%Y\\%m\\%d\\'
+
+    dexela_c.tiff.read_path_template = f'/nsls2/data/xpd-new/legacy/raw/xpdd/{dexela_c.name}_data/%Y/%m/%d/'
+    dexela_c.tiff.write_path_template = f'J:\\{dexela_c.name}_data\\%Y\\%m\\%d\\'
     dexela_c.cam.bin_x.kind = 'config'
     dexela_c.cam.bin_y.kind = 'config'
     dexela_c.detector_type.kind = 'config'
@@ -262,7 +265,8 @@ class XPDTOMOBlackfly(BlackflyDetector):
              cam_name='cam',  
              proc_name='proc',
              read_attrs=[],
-             root='/nsls2/data/xpd/tomo/legacy/raw/')
+             # root='/nsls2/data/xpd-new/legacy/raw/xpdd/',
+                    )
 
     proc = Component(ProcessPlugin, 'Proc1:')
 
@@ -288,8 +292,17 @@ class XPDTOMOBlackfly(BlackflyDetector):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.stage_sigs.update([(self.cam.trigger_mode, 'Off')])
+        self.proc.stage_sigs.update([(self.proc.filter_type, 'RecursiveAve')])
         
 class BlackflyContinuous(ContinuousAcquisitionTrigger, XPDTOMOBlackfly):
+    def make_data_key(self):
+        source = 'PV:{}'.format(self.prefix)
+        # This shape is expected to match arr.shape for the array.
+        shape = (self.number_of_sets.get(),
+                 self.cam.array_size.array_size_y.get(),
+                 self.cam.array_size.array_size_x.get())
+        return dict(shape=shape, source=source, dtype='array',
+                    external='FILESTORE:')
     pass
 
 try:
@@ -299,8 +312,8 @@ try:
                                  read_attrs=['tiff', 'stats1.total'],
                                  plugin_name='tiff')
 
-    blackfly_c.tiff.read_path_template = f'/nsls2/data/xpd/tomo/legacy/raw/{blackfly_c.name}_data/%Y/%m/%d/'
-    blackfly_c.tiff.write_path_template = f'/nsls2/data/xpd/tomo/legacy/raw/{blackfly_c.name}_data/%Y/%m/%d/'
+    blackfly_c.tiff.read_path_template = f'/nsls2/data/xpd-new/legacy/raw/xpdd/{blackfly_c.name}_data/%Y/%m/%d/'
+    blackfly_c.tiff.write_path_template = f'/nsls2/data/xpd-new/legacy/raw/xpdd/{blackfly_c.name}_data/%Y/%m/%d/'
     blackfly_c.cam.bin_x.kind = 'config'
     blackfly_c.cam.bin_y.kind = 'config'
     blackfly_c.detector_type.kind = 'config'
@@ -353,7 +366,8 @@ class XPDTOMOEmergent(EmergentDetector):
              cam_name='cam',  
              proc_name='proc', 
              read_attrs=[],
-             root='/nsls2/data/xpd/tomo/legacy/raw/')
+             # root='/nsls2/data/xpd-new/legacy/raw/xpdd/',
+                    )
 
     proc = Component(ProcessPlugin, 'Proc1:')
 
@@ -378,11 +392,21 @@ class XPDTOMOEmergent(EmergentDetector):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.proc.stage_sigs.update([(self.cam.acquire, 1)])
         self.stage_sigs.update([(self.cam.trigger_mode, 'Internal')])
         self.stage_sigs.update([(self.cam.data_type, 'UInt16')])
         self.stage_sigs.update([(self.cam.color_mode, 'Mono')])
+        self.proc.stage_sigs.update([(self.proc.filter_type, 'RecursiveAve')])
         
 class EmergentContinuous(ContinuousAcquisitionTrigger, XPDTOMOEmergent):
+    def make_data_key(self):
+        source = 'PV:{}'.format(self.prefix)
+        # This shape is expected to match arr.shape for the array.
+        shape = (self.number_of_sets.get(),
+                 self.cam.array_size.array_size_y.get(),
+                 self.cam.array_size.array_size_x.get())
+        return dict(shape=shape, source=source, dtype='array',
+                    external='FILESTORE:')
     pass
 
 try:
@@ -392,8 +416,10 @@ try:
                                  read_attrs=['tiff', 'stats1.total'],
                                  plugin_name='tiff')
 
-    emergent_c.tiff.read_path_template = f'/nsls2/data/xpd/tomo/legacy/raw/{emergent_c.name}_data/%Y/%m/%d/'
-    emergent_c.tiff.write_path_template = f'J:\\emergent_data\\%Y\\%m\\%d\\'
+    # emergent_c.tiff.read_path_template = f'/nsls2/data/xpd/tomo/legacy/raw/{emergent_c.name}_data/%Y/%m/%d/'
+    # emergent_c.tiff.write_path_template = f'J:\\emergent_data\\%Y\\%m\\%d\\'
+    emergent_c.tiff.read_path_template = f'/nsls2/data/xpd-new/legacy/raw/xpdd/{emergent_c.name}_data/%Y/%m/%d/'
+    emergent_c.tiff.write_path_template = f'J:\\{emergent_c.name}_data\\%Y\\%m\\%d\\'
     emergent_c.cam.bin_x.kind = 'config'
     emergent_c.cam.bin_y.kind = 'config'
     emergent_c.detector_type.kind = 'config'
@@ -431,7 +457,8 @@ class XPDTOMOProsilica(ProsilicaDetector):
              cam_name='cam',  
              proc_name='proc',
              read_attrs=[],
-             root='/nsls2/data/xpd/tomo/legacy/raw/')
+             # root='/nsls2/data/xpd-new/legacy/raw/xpdd/',
+                    )
 
     proc = Component(ProcessPlugin, 'Proc1:')
 
@@ -457,8 +484,17 @@ class XPDTOMOProsilica(ProsilicaDetector):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.stage_sigs.update([(self.cam.trigger_mode, 'Free Run')])
+        self.proc.stage_sigs.update([(self.proc.filter_type, 'RecursiveAve')])
         
 class ProsilicaContinuous(ContinuousAcquisitionTrigger, XPDTOMOProsilica):
+    def make_data_key(self):
+        source = 'PV:{}'.format(self.prefix)
+        # This shape is expected to match arr.shape for the array.
+        shape = (self.number_of_sets.get(),
+                 self.cam.array_size.array_size_y.get(),
+                 self.cam.array_size.array_size_x.get())
+        return dict(shape=shape, source=source, dtype='array',
+                    external='FILESTORE:')
     pass
 
 try:
@@ -468,8 +504,8 @@ try:
                                  read_attrs=['tiff', 'stats1.total'],
                                  plugin_name='tiff')
 
-    prosilica_c.tiff.read_path_template = f'/nsls2/data/xpd/tomo/legacy/raw/{prosilica_c.name}_data/%Y/%m/%d/'
-    prosilica_c.tiff.write_path_template = f'/nsls2/data/xpd/tomo/legacy/raw/{prosilica_c.name}_data/%Y/%m/%d/'
+    prosilica_c.tiff.read_path_template = f'/nsls2/data/xpd-new/legacy/raw/xpdd/{prosilica_c.name}_data/%Y/%m/%d/'
+    prosilica_c.tiff.write_path_template = f'/nsls2/data/xpd-new/legacy/raw/xpdd/{prosilica_c.name}_data/%Y/%m/%d/'
     prosilica_c.cam.bin_x.kind = 'config'
     prosilica_c.cam.bin_y.kind = 'config'
     prosilica_c.detector_type.kind = 'config'
@@ -479,6 +515,97 @@ except Exception as exc:
     print(exc)
     print('\n unable to initiate prosilca detector. Something is wrong... ')
     pass
+
+
+
+
+
+
+
+#=========================================================================#
+#=============================AlliedVision===================================#
+#=========================================================================#  
+class AlliedVisionDetectorCam(CamBase):
+    pass    
+    
+class AlliedVisionDetector(AreaDetector):
+    cam = Component(AlliedVisionDetectorCam, 'cam1:',
+              read_attrs=[],
+              configuration_attrs=['image_mode', 'trigger_mode',
+                                   'acquire_time', 'acquire_period'],
+              )
+
+class XPDTOMOAlliedVision(AlliedVisionDetector):
+    image = Component(ImagePlugin, 'image1:')
+    _default_configuration_attrs = (
+        AlliedVisionDetector._default_configuration_attrs +
+        ('images_per_set', 'number_of_sets', 'pixel_size'))
+    tiff = Component(XPDTIFFPlugin, 'TIFF1:',
+             write_path_template='/a/b/c/',
+             read_path_template='/a/b/c',
+             cam_name='cam',  
+             proc_name='proc',
+             read_attrs=[],
+             # root='/nsls2/data/xpd-new/legacy/raw/xpdd/',
+                    )
+
+    proc = Component(ProcessPlugin, 'Proc1:')
+
+    # These attributes together replace `num_images`. They control
+    # summing images before they are stored by the detector (a.k.a. "tiff
+    # squashing").
+    images_per_set = Component(Signal, value=1, add_prefix=())
+    number_of_sets = Component(Signal, value=1, add_prefix=())
+
+    pixel_size = Component(Signal, value=.000005, kind='config') #unknown
+    detector_type = Component(Signal, value='Prosilica', kind='config')
+    stats1 = Component(StatsPluginV33, 'Stats1:', kind = 'hinted')
+    #stats2 = Component(StatsPluginV33, 'Stats2:')
+    #stats3 = Component(StatsPluginV33, 'Stats3:')
+    #stats4 = Component(StatsPluginV33, 'Stats4:')
+    #stats5 = Component(StatsPluginV33, 'Stats5:', kind = 'hinted')
+
+    roi1 = Component(ROIPlugin, 'ROI1:')
+    #roi2 = Component(ROIPlugin, 'ROI2:')
+    #roi3 = Component(ROIPlugin, 'ROI3:')
+    #roi4 = Component(ROIPlugin, 'ROI4:')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.stage_sigs.update([(self.cam.trigger_mode, 'Free Run')])
+        self.proc.stage_sigs.update([(self.proc.filter_type, 'RecursiveAve')])
+        
+class AlliedVisionContinuous(ContinuousAcquisitionTrigger, XPDTOMOAlliedVision):
+    def make_data_key(self):
+        source = 'PV:{}'.format(self.prefix)
+        # This shape is expected to match arr.shape for the array.
+        shape = (self.number_of_sets.get(),
+                 self.cam.array_size.array_size_y.get(),
+                 self.cam.array_size.array_size_x.get())
+        return dict(shape=shape, source=source, dtype='array',
+                    external='FILESTORE:')
+    pass
+
+try:
+    # AlliedVision camera configurations:
+    alliedvision_pv_prefix = 'XF:28ID2-ES{Det:AV1}'
+    alliedvision_c = AlliedVisionContinuous(alliedvision_pv_prefix, name='alliedvision',
+                                 read_attrs=['tiff', 'stats1.total'],
+                                 plugin_name='tiff')
+
+    alliedvision_c.tiff.read_path_template = f'/nsls2/data/xpd/tomo/legacy/raw/{alliedvision_c.name}_data/%Y/%m/%d/'
+    alliedvision_c.tiff.write_path_template = f'/nsls2/data/xpd/tomo/legacy/raw/{alliedvision_c.name}_data/%Y/%m/%d/'
+    alliedvision_c.cam.bin_x.kind = 'config'
+    alliedvision_c.cam.bin_y.kind = 'config'
+    alliedvision_c.detector_type.kind = 'config'
+    alliedvision_c.stats1.kind = 'hinted'
+    alliedvision_c.stats1.total.kind = 'hinted' 
+except Exception as exc:
+    print(exc)
+    print('\n unable to initiate alliedvision camera. Something is wrong... ')
+    pass
+
+
 
 
 """
@@ -494,8 +621,33 @@ except Exception as exc:
         shape = (self.number_of_sets.get(),
                  self.cam.array_size.array_size_y.get(),
                  self.cam.array_size.array_size_x.get())
-"""
+                 
+ 
+# for dtype_str issue==========================================================|
+# git clone file:///nsls2/software/etc/tiled/ ~/.config/tiled 
+# cd  ~/.config/tiled
+# make_links.sh
 
+# add this to xpdd_transforms.py
+
+import copy
+
+def patch_descriptor(doc):
+
+    for cam in ["dexela", "blackfly", "prosilica", "emergent", "alliedvision"]:
+        if f"{cam}_image" in doc["data_keys"]:
+            doc = copy.deepcopy(doc)
+            doc["data_keys"][f"{cam}_image"]["dtype_str"] = "<u2"
+
+    for cam in ["prosilica",]:
+        if f"{cam}_image" in doc["data_keys"]:
+            doc = copy.deepcopy(doc)
+            doc["data_keys"][f"{cam}_image"]["dtype_str"] = "<u1"
+
+    return doc
+
+===============================================================================|
+"""
 
 
 
