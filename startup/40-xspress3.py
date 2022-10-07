@@ -1,3 +1,5 @@
+print(f'Loading {__file__}')
+
 import os
 from ophyd import Component
 from ophyd.areadetector import Xspress3Detector
@@ -30,6 +32,24 @@ xspress3_class = build_xspress3_class(
 
 xs3 = xspress3_class(prefix=xs3_pv_prefix, name="xs3")
 
+# Hints for live plots/table.
+# Hint: check the status of the fields with `xs3.summary()`. The hinted
+# components should be marked with '*'. Example:
+#
+# In [1]: xs3.summary()
+# data keys (* hints)
+# -------------------
+#  xs3_channel01_data
+# *xs3_channel01_mcaroi01_total_rbv
+#
+# read attrs
+# ----------
+# channel01            GeneratedXspress3Channel('xs3_channel01')
+# channel01.sca        Sca                 ('xs3_channel01_sca')
+# channel01.mca        Mca                 ('xs3_channel01_mca')
+# ...
+
 xs3.channel01.kind = "normal"
 xs3.channel01.data.kind = "normal"
-# Check the status of the fields with `xs3.summary()`
+xs3.channel01.mcaroi01.kind = 'hinted'
+xs3.channel01.mcaroi01.total_rbv.kind = 'hinted'
