@@ -18,8 +18,10 @@ from ophyd import EpicsSignalRO
 EpicsSignal.set_defaults(timeout=10, connection_timeout=10)
 
 
-from databroker import catalog
-raw = catalog['xpdd']
+# from databroker import catalog
+# raw = catalog['xpdd']
+from tiled.client import from_profile
+raw = from_profile('xpdd')
 
 
 # general imports -------------

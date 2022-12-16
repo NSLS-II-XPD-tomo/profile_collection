@@ -9,12 +9,12 @@ print(f'Loading {__file__}')
 
 
 import ophyd
-from ophyd.areadetector import (AreaDetector, 
+from ophyd.areadetector import (AreaDetector,
                                 ImagePlugin,
-                                TIFFPlugin, 
-                                StatsPlugin, 
-                                ProcessPlugin, 
-                                ROIPlugin, 
+                                TIFFPlugin,
+                                StatsPlugin,
+                                ProcessPlugin,
+                                ROIPlugin,
                                 TransformPlugin,
                                 OverlayPlugin,
                                 CamBase)
@@ -58,12 +58,12 @@ class ContinuousAcquisitionTrigger(BlueskyInterface):
         if image_name is None:
             image_name = '_'.join([self.name, 'image'])
         self._plugin.stage_sigs[self._plugin.auto_save] = 'No'
-        
+
         #self.cam.stage_sigs[self.cam.image_mode] = 'Continuous'
         # MT: For Emergent to work
         self.cam.stage_sigs['image_mode'] = 'Continuous'
-        self.cam.stage_sigs['acquire'] = 1        
-        
+        self.cam.stage_sigs['acquire'] = 1
+
         self._plugin.stage_sigs[self._plugin.file_write_mode] = 'Capture'
         self._image_name = image_name
         self._status = None
@@ -72,12 +72,10 @@ class ContinuousAcquisitionTrigger(BlueskyInterface):
         self._save_started = False
 
     def stage(self):
-        
         if self.cam.acquire.get() != 1:
             raise RuntimeError("The ContinuousAcuqisitionTrigger expects "
-                               "the detector to already be acquiring.")   
+                               "the detector to already be acquiring.")
         return super().stage()
-
 
     def trigger(self):
         "Trigger one acquisition."
@@ -111,11 +109,11 @@ class ContinuousAcquisitionTrigger(BlueskyInterface):
             self._status._finished()
             self._status = None
             self._save_started = False
-            
-                  
+
+
 #=========================================================================#
 #=============================Dexela======================================#
-#=========================================================================#            
+#=========================================================================#
 class DexelaDetectorCam(CamBase):
     acquire_gain = Component(EpicsSignal, 'DEXAcquireGain')
     acquire_offset = Component(EpicsSignal, 'DEXAcquireOffset')
@@ -176,8 +174,8 @@ class XPDTOMODexela(DexelaDetector):
     tiff = Component(XPDTIFFPlugin, 'TIFF1:',
              write_path_template='/a/b/c/',
              read_path_template='/a/b/c',
-             cam_name='cam', 
-             proc_name='proc',  
+             cam_name='cam',
+             proc_name='proc',
              read_attrs=[],
              # root='/nsls2/data/xpd-new/legacy/raw/xpdd/',
                     )
@@ -207,8 +205,8 @@ class XPDTOMODexela(DexelaDetector):
         super().__init__(*args, **kwargs)
         self.stage_sigs.update([(self.cam.trigger_mode, 'Int. Software')])
         self.proc.stage_sigs.update([(self.proc.filter_type, 'RecursiveAve')])
-    
-    
+
+
 class DexelaContinuous(ContinuousAcquisitionTrigger, XPDTOMODexela):
     def make_data_key(self):
         source = 'PV:{}'.format(self.prefix)
@@ -233,20 +231,20 @@ try:
     dexela_c.detector_type.kind = 'config'
     dexela_c.stats1.kind = 'hinted'
     dexela_c.stats1.total.kind = 'hinted'
-    dexela_c.cam.ensure_nonblocking()    
+    dexela_c.cam.ensure_nonblocking()
 except Exception as exc:
     print(exc)
     print('\n unable to initiate dexela detector. Something is wrong... ')
     pass
 
 
-    
+
 #=========================================================================#
 #=============================Blackfly====================================#
-#=========================================================================#  
+#=========================================================================#
 class BlackflyDetectorCam(CamBase):
-    pass    
-    
+    pass
+
 class BlackflyDetector(AreaDetector):
     cam = Component(BlackflyDetectorCam, 'cam1:',
               read_attrs=[],
@@ -262,7 +260,7 @@ class XPDTOMOBlackfly(BlackflyDetector):
     tiff = Component(XPDTIFFPlugin, 'TIFF1:',
              write_path_template='/a/b/c/',
              read_path_template='/a/b/c',
-             cam_name='cam',  
+             cam_name='cam',
              proc_name='proc',
              read_attrs=[],
              # root='/nsls2/data/xpd-new/legacy/raw/xpdd/',
@@ -293,7 +291,7 @@ class XPDTOMOBlackfly(BlackflyDetector):
         super().__init__(*args, **kwargs)
         self.stage_sigs.update([(self.cam.trigger_mode, 'Off')])
         self.proc.stage_sigs.update([(self.proc.filter_type, 'RecursiveAve')])
-        
+
 class BlackflyContinuous(ContinuousAcquisitionTrigger, XPDTOMOBlackfly):
     def make_data_key(self):
         source = 'PV:{}'.format(self.prefix)
@@ -318,17 +316,17 @@ try:
     blackfly_c.cam.bin_y.kind = 'config'
     blackfly_c.detector_type.kind = 'config'
     blackfly_c.stats1.kind = 'hinted'
-    blackfly_c.stats1.total.kind = 'hinted' 
+    blackfly_c.stats1.total.kind = 'hinted'
 except Exception as exc:
     print(exc)
     print('\n unable to initiate blackfly camera. Something is wrong... ')
-    pass        
-        
-        
-        
+    pass
+
+
+
 #=========================================================================#
 #=============================Emergent====================================#
-#=========================================================================# 
+#=========================================================================#
 class EmergentDetectorCam(CamBase):
 
     wait_for_plugins = Component(EpicsSignal, 'WaitForPlugins',
@@ -363,8 +361,8 @@ class XPDTOMOEmergent(EmergentDetector):
     tiff = Component(XPDTIFFPlugin, 'TIFF1:',
              write_path_template='/a/b/c/',
              read_path_template='/a/b/c',
-             cam_name='cam',  
-             proc_name='proc', 
+             cam_name='cam',
+             proc_name='proc',
              read_attrs=[],
              # root='/nsls2/data/xpd-new/legacy/raw/xpdd/',
                     )
@@ -397,7 +395,7 @@ class XPDTOMOEmergent(EmergentDetector):
         self.stage_sigs.update([(self.cam.data_type, 'UInt16')])
         self.stage_sigs.update([(self.cam.color_mode, 'Mono')])
         self.proc.stage_sigs.update([(self.proc.filter_type, 'RecursiveAve')])
-        
+
 class EmergentContinuous(ContinuousAcquisitionTrigger, XPDTOMOEmergent):
     def make_data_key(self):
         source = 'PV:{}'.format(self.prefix)
@@ -424,8 +422,8 @@ try:
     emergent_c.cam.bin_y.kind = 'config'
     emergent_c.detector_type.kind = 'config'
     emergent_c.stats1.kind = 'hinted'
-    emergent_c.stats1.total.kind = 'hinted' 
-    emergent_c.cam.ensure_nonblocking()      
+    emergent_c.stats1.total.kind = 'hinted'
+    emergent_c.cam.ensure_nonblocking()
 except Exception as exc:
     print(exc)
     print('\n unable to initiate emergent camera. Something is wrong... ')
@@ -435,10 +433,10 @@ except Exception as exc:
 
 #=========================================================================#
 #=============================Prosilica===================================#
-#=========================================================================#  
+#=========================================================================#
 class ProsilicaDetectorCam(CamBase):
-    pass    
-    
+    pass
+
 class ProsilicaDetector(AreaDetector):
     cam = Component(ProsilicaDetectorCam, 'cam1:',
               read_attrs=[],
@@ -454,7 +452,7 @@ class XPDTOMOProsilica(ProsilicaDetector):
     tiff = Component(XPDTIFFPlugin, 'TIFF1:',
              write_path_template='/a/b/c/',
              read_path_template='/a/b/c',
-             cam_name='cam',  
+             cam_name='cam',
              proc_name='proc',
              read_attrs=[],
              # root='/nsls2/data/xpd-new/legacy/raw/xpdd/',
@@ -485,7 +483,7 @@ class XPDTOMOProsilica(ProsilicaDetector):
         super().__init__(*args, **kwargs)
         self.stage_sigs.update([(self.cam.trigger_mode, 'Free Run')])
         self.proc.stage_sigs.update([(self.proc.filter_type, 'RecursiveAve')])
-        
+
 class ProsilicaContinuous(ContinuousAcquisitionTrigger, XPDTOMOProsilica):
     def make_data_key(self):
         source = 'PV:{}'.format(self.prefix)
@@ -510,7 +508,7 @@ try:
     prosilica_c.cam.bin_y.kind = 'config'
     prosilica_c.detector_type.kind = 'config'
     prosilica_c.stats1.kind = 'hinted'
-    prosilica_c.stats1.total.kind = 'hinted' 
+    prosilica_c.stats1.total.kind = 'hinted'
 except Exception as exc:
     print(exc)
     print('\n unable to initiate prosilca detector. Something is wrong... ')
@@ -522,88 +520,88 @@ except Exception as exc:
 
 
 
-#=========================================================================#
-#=============================AlliedVision===================================#
-#=========================================================================#  
-class AlliedVisionDetectorCam(CamBase):
-    pass    
-    
-class AlliedVisionDetector(AreaDetector):
-    cam = Component(AlliedVisionDetectorCam, 'cam1:',
-              read_attrs=[],
-              configuration_attrs=['image_mode', 'trigger_mode',
-                                   'acquire_time', 'acquire_period'],
-              )
+# #=========================================================================#
+# #=============================AlliedVision===================================#
+# #=========================================================================#
+# class AlliedVisionDetectorCam(CamBase):
+#     pass
 
-class XPDTOMOAlliedVision(AlliedVisionDetector):
-    image = Component(ImagePlugin, 'image1:')
-    _default_configuration_attrs = (
-        AlliedVisionDetector._default_configuration_attrs +
-        ('images_per_set', 'number_of_sets', 'pixel_size'))
-    tiff = Component(XPDTIFFPlugin, 'TIFF1:',
-             write_path_template='/a/b/c/',
-             read_path_template='/a/b/c',
-             cam_name='cam',  
-             proc_name='proc',
-             read_attrs=[],
-             # root='/nsls2/data/xpd-new/legacy/raw/xpdd/',
-                    )
+# class AlliedVisionDetector(AreaDetector):
+#     cam = Component(AlliedVisionDetectorCam, 'cam1:',
+#               read_attrs=[],
+#               configuration_attrs=['image_mode', 'trigger_mode',
+#                                    'acquire_time', 'acquire_period'],
+#               )
 
-    proc = Component(ProcessPlugin, 'Proc1:')
+# class XPDTOMOAlliedVision(AlliedVisionDetector):
+#     image = Component(ImagePlugin, 'image1:')
+#     _default_configuration_attrs = (
+#         AlliedVisionDetector._default_configuration_attrs +
+#         ('images_per_set', 'number_of_sets', 'pixel_size'))
+#     tiff = Component(XPDTIFFPlugin, 'TIFF1:',
+#              write_path_template='/a/b/c/',
+#              read_path_template='/a/b/c',
+#              cam_name='cam',
+#              proc_name='proc',
+#              read_attrs=[],
+#              # root='/nsls2/data/xpd-new/legacy/raw/xpdd/',
+#                     )
 
-    # These attributes together replace `num_images`. They control
-    # summing images before they are stored by the detector (a.k.a. "tiff
-    # squashing").
-    images_per_set = Component(Signal, value=1, add_prefix=())
-    number_of_sets = Component(Signal, value=1, add_prefix=())
+#     proc = Component(ProcessPlugin, 'Proc1:')
 
-    pixel_size = Component(Signal, value=.000005, kind='config') #unknown
-    detector_type = Component(Signal, value='Prosilica', kind='config')
-    stats1 = Component(StatsPluginV33, 'Stats1:', kind = 'hinted')
-    #stats2 = Component(StatsPluginV33, 'Stats2:')
-    #stats3 = Component(StatsPluginV33, 'Stats3:')
-    #stats4 = Component(StatsPluginV33, 'Stats4:')
-    #stats5 = Component(StatsPluginV33, 'Stats5:', kind = 'hinted')
+#     # These attributes together replace `num_images`. They control
+#     # summing images before they are stored by the detector (a.k.a. "tiff
+#     # squashing").
+#     images_per_set = Component(Signal, value=1, add_prefix=())
+#     number_of_sets = Component(Signal, value=1, add_prefix=())
 
-    roi1 = Component(ROIPlugin, 'ROI1:')
-    #roi2 = Component(ROIPlugin, 'ROI2:')
-    #roi3 = Component(ROIPlugin, 'ROI3:')
-    #roi4 = Component(ROIPlugin, 'ROI4:')
+#     pixel_size = Component(Signal, value=.000005, kind='config') #unknown
+#     detector_type = Component(Signal, value='Prosilica', kind='config')
+#     stats1 = Component(StatsPluginV33, 'Stats1:', kind = 'hinted')
+#     #stats2 = Component(StatsPluginV33, 'Stats2:')
+#     #stats3 = Component(StatsPluginV33, 'Stats3:')
+#     #stats4 = Component(StatsPluginV33, 'Stats4:')
+#     #stats5 = Component(StatsPluginV33, 'Stats5:', kind = 'hinted')
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.stage_sigs.update([(self.cam.trigger_mode, 'Free Run')])
-        self.proc.stage_sigs.update([(self.proc.filter_type, 'RecursiveAve')])
-        
-class AlliedVisionContinuous(ContinuousAcquisitionTrigger, XPDTOMOAlliedVision):
-    def make_data_key(self):
-        source = 'PV:{}'.format(self.prefix)
-        # This shape is expected to match arr.shape for the array.
-        shape = (self.number_of_sets.get(),
-                 self.cam.array_size.array_size_y.get(),
-                 self.cam.array_size.array_size_x.get())
-        return dict(shape=shape, source=source, dtype='array',
-                    external='FILESTORE:')
-    pass
+#     roi1 = Component(ROIPlugin, 'ROI1:')
+#     #roi2 = Component(ROIPlugin, 'ROI2:')
+#     #roi3 = Component(ROIPlugin, 'ROI3:')
+#     #roi4 = Component(ROIPlugin, 'ROI4:')
 
-try:
-    # AlliedVision camera configurations:
-    alliedvision_pv_prefix = 'XF:28ID2-ES{Det:AV1}'
-    alliedvision_c = AlliedVisionContinuous(alliedvision_pv_prefix, name='alliedvision',
-                                 read_attrs=['tiff', 'stats1.total'],
-                                 plugin_name='tiff')
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         self.stage_sigs.update([(self.cam.trigger_mode, 'Free Run')])
+#         self.proc.stage_sigs.update([(self.proc.filter_type, 'RecursiveAve')])
 
-    alliedvision_c.tiff.read_path_template = f'/nsls2/data/xpd/tomo/legacy/raw/{alliedvision_c.name}_data/%Y/%m/%d/'
-    alliedvision_c.tiff.write_path_template = f'/nsls2/data/xpd/tomo/legacy/raw/{alliedvision_c.name}_data/%Y/%m/%d/'
-    alliedvision_c.cam.bin_x.kind = 'config'
-    alliedvision_c.cam.bin_y.kind = 'config'
-    alliedvision_c.detector_type.kind = 'config'
-    alliedvision_c.stats1.kind = 'hinted'
-    alliedvision_c.stats1.total.kind = 'hinted' 
-except Exception as exc:
-    print(exc)
-    print('\n unable to initiate alliedvision camera. Something is wrong... ')
-    pass
+# class AlliedVisionContinuous(ContinuousAcquisitionTrigger, XPDTOMOAlliedVision):
+#     def make_data_key(self):
+#         source = 'PV:{}'.format(self.prefix)
+#         # This shape is expected to match arr.shape for the array.
+#         shape = (self.number_of_sets.get(),
+#                  self.cam.array_size.array_size_y.get(),
+#                  self.cam.array_size.array_size_x.get())
+#         return dict(shape=shape, source=source, dtype='array',
+#                     external='FILESTORE:')
+#     pass
+
+# try:
+#     # AlliedVision camera configurations:
+#     alliedvision_pv_prefix = 'XF:28ID2-ES:2{Det:AV1}'
+#     alliedvision_c = AlliedVisionContinuous(alliedvision_pv_prefix, name='alliedvision',
+#                                  read_attrs=['tiff', 'stats1.total'],
+#                                  plugin_name='tiff')
+
+#     alliedvision_c.tiff.read_path_template = f'/nsls2/data/xpd/tomo/legacy/raw/{alliedvision_c.name}_data/%Y/%m/%d/'
+#     alliedvision_c.tiff.write_path_template = f'/nsls2/data/xpd/tomo/legacy/raw/{alliedvision_c.name}_data/%Y/%m/%d/'
+#     alliedvision_c.cam.bin_x.kind = 'config'
+#     alliedvision_c.cam.bin_y.kind = 'config'
+#     alliedvision_c.detector_type.kind = 'config'
+#     alliedvision_c.stats1.kind = 'hinted'
+#     alliedvision_c.stats1.total.kind = 'hinted'
+# except Exception as exc:
+#     print(exc)
+#     print('\n unable to initiate alliedvision camera. Something is wrong... ')
+#     pass
 
 
 
@@ -621,10 +619,10 @@ except Exception as exc:
         shape = (self.number_of_sets.get(),
                  self.cam.array_size.array_size_y.get(),
                  self.cam.array_size.array_size_x.get())
-                 
- 
+
+
 # for dtype_str issue==========================================================|
-# git clone file:///nsls2/software/etc/tiled/ ~/.config/tiled 
+# git clone file:///nsls2/software/etc/tiled/ ~/.config/tiled
 # cd  ~/.config/tiled
 # make_links.sh
 
