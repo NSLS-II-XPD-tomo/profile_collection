@@ -1,6 +1,7 @@
 print(f'Loading {__file__}')
 
 import os
+import datetime
 from ophyd import Component
 from ophyd.areadetector import Xspress3Detector, ProcessPlugin
 from nslsii.areadetector.xspress3 import (
@@ -11,17 +12,26 @@ from nslsii.areadetector.xspress3 import (
 from ophyd.status import SubscriptionStatus
 
 
+def now():
+    return datetime.datetime.now().isoformat()
+
+
 class XPDDXspress3Trigger(Xspress3Trigger):
     def new_acquire_status(self):
         device_status = super().new_acquire_status()
 
         def hdf5plugin_done_callback(old_value, value, **kwargs):
-            print(f"old_value = {old_value}\nnew_value = {value}")
-            print(f"kwargs = {kwargs}")
+
+            # print(f"{now()} {self.cam.num_images.get() = }")
+            # print(f"{now()} {self.proc_plugin.num_filter.get() = }")
+            # print(f"{now()} {self.hdf5plugin.array_counter.get() = }")
+
             expected_frames = int(self.cam.num_images.get() / self.proc_plugin.num_filter.get())
             if old_value != value and value == expected_frames:
+                # print(f"{now()} True condition: {old_value = }  ->  {value = } == {expected_frames = }")
                 return True
             else:
+                # print(f"{now()} False condition: {old_value = }  ->  {value = } != {expected_frames = }")
                 return False
 
         hdf5plugin_status = SubscriptionStatus(self.hdf5plugin.array_counter,
@@ -82,3 +92,11 @@ xs3.channel01.kind = "normal"
 xs3.channel01.data.kind = "normal"
 xs3.channel01.mcaroi01.kind = 'hinted'
 xs3.channel01.mcaroi01.total_rbv.kind = 'hinted'
+
+xs3.proc_plugin.stage_sigs.update({
+    "filter_callbacks": "Array N only",
+    "auto_reset_filter": "Yes",
+    "filter_type": "RecursiveAve",
+    "array_counter": 0,
+})
+xs3.cam.stage_sigs.update({"erase": 1})
