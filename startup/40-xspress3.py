@@ -59,8 +59,8 @@ xspress3_class = build_xspress3_class(
         extra_class_members={
             "hdf5plugin": Component(
                 Xspress3HDF5Plugin,
+                "HDF1:",
                 name="h5p",
-                prefix=f"{xs3_pv_prefix}HDF1:",
                 root_path=xs3_root_path,
                 path_template=xs3_data_dir,
                 resource_kwargs={},
