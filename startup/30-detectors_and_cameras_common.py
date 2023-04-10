@@ -15,8 +15,6 @@ from ophyd.areadetector import (
     StatsPlugin,
     ProcessPlugin,
     ROIPlugin,
-    TransformPlugin,
-    OverlayPlugin,
     CamBase,
 )
 
@@ -40,8 +38,77 @@ from ophyd.device import BlueskyInterface
 from ophyd.device import DeviceStatus
 
 
+class XPDCamBase(CamBase):
+    wait_for_plugins = Component(
+        EpicsSignal, "WaitForPlugins", string=True, kind="config"
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.stage_sigs["wait_for_plugins"] = "Yes"
+
+    def ensure_nonblocking(self):
+        self.stage_sigs["wait_for_plugins"] = "Yes"
+        for c in self.parent.component_names:
+            cpt = getattr(self.parent, c)
+            if cpt is self:
+                continue
+            if hasattr(cpt, "ensure_nonblocking"):
+                #                 print(f'cpt: {cpt.name}')
+                cpt.ensure_nonblocking()
+
+
 class XPDTIFFPlugin(TIFFPlugin, FileStoreTIFFSquashing, FileStoreIterativeWrite):
     pass
+
+
+class XPDAreaDetector(AreaDetector):
+    cam = Component(
+        XPDCamBase,
+        "cam1:",
+        read_attrs=[],
+        configuration_attrs=[
+            "image_mode",
+            "trigger_mode",
+            "acquire_time",
+            "acquire_period",
+        ],
+    )
+
+    image = Component(ImagePlugin, "image1:")
+
+    tiff = Component(
+        XPDTIFFPlugin,
+        "TIFF1:",
+        write_path_template="/a/b/c/",
+        read_path_template="/a/b/c",
+        cam_name="cam",
+        proc_name="proc",
+        read_attrs=[],
+    )
+
+    proc = Component(ProcessPlugin, "Proc1:")
+
+    # These attributes together replace `num_images`. They control
+    # summing images before they are stored by the detector (a.k.a. "tiff
+    # squashing").
+    images_per_set = Component(Signal, value=1, add_prefix=())
+    number_of_sets = Component(Signal, value=1, add_prefix=())
+
+    stats1 = Component(StatsPluginV33, "Stats1:", kind="hinted")
+    stats2 = Component(StatsPluginV33, "Stats2:")
+    stats3 = Component(StatsPluginV33, "Stats3:")
+    stats4 = Component(StatsPluginV33, "Stats4:")
+
+    roi1 = Component(ROIPlugin, "ROI1:")
+    roi2 = Component(ROIPlugin, "ROI2:")
+    roi3 = Component(ROIPlugin, "ROI3:")
+    roi4 = Component(ROIPlugin, "ROI4:")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.stage_sigs.update([(self.cam.trigger_mode, "Int. Software")])
+        self.proc.stage_sigs.update([(self.proc.filter_type, "RecursiveAve")])
 
 
 class ContinuousAcquisitionTrigger(BlueskyInterface):
@@ -116,38 +183,18 @@ class ContinuousAcquisitionTrigger(BlueskyInterface):
             self._save_started = False
 
 
-class XPDDetectorCam(CamBase):
-    wait_for_plugins = Component(
-        EpicsSignal, "WaitForPlugins", string=True, kind="config"
-    )
+class XPDContinuous(ContinuousAcquisitionTrigger, XPDAreaDetector):
+    def make_data_key(self):
+        source = "PV:{}".format(self.prefix)
+        # This shape is expected to match arr.shape for the array.
+        shape = (
+            self.number_of_sets.get(),
+            self.cam.array_size.array_size_y.get(),
+            self.cam.array_size.array_size_x.get(),
+        )
+        return dict(shape=shape, source=source, dtype="array", external="FILESTORE:")
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.stage_sigs["wait_for_plugins"] = "Yes"
-
-    def ensure_nonblocking(self):
-        self.stage_sigs["wait_for_plugins"] = "Yes"
-        for c in self.parent.component_names:
-            cpt = getattr(self.parent, c)
-            if cpt is self:
-                continue
-            if hasattr(cpt, "ensure_nonblocking"):
-                #                 print(f'cpt: {cpt.name}')
-                cpt.ensure_nonblocking()
-
-
-class XPDDetector(AreaDetector):
-    cam = Component(
-        XPDDetectorCam,
-        "cam1:",
-        read_attrs=[],
-        configuration_attrs=[
-            "image_mode",
-            "trigger_mode",
-            "acquire_time",
-            "acquire_period",
-        ],
-    )
+    pass
 
 
 """
