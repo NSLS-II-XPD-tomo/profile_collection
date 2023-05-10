@@ -32,6 +32,9 @@ try:
     dexela_c.stats1.total.kind = "hinted"
     dexela_c.cam.ensure_nonblocking()
 
+    warmup_det(dexela_c)
+
+
 except Exception as exc:
     print(exc)
     print("\n Unable to initiate Dexela detector (hdf). Something is wrong... ")

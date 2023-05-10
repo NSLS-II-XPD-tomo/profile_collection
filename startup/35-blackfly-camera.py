@@ -33,6 +33,9 @@ try:
     blackfly_c.stats1.kind = "hinted"
     blackfly_c.stats1.total.kind = "hinted"
     blackfly_c.cam.ensure_nonblocking()
+
+    warmup_det(blackfly_c)
+
 except Exception as exc:
     print(exc)
     print("\n Unable to initiate blackfly camera. Something is wrong... ")

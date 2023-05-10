@@ -32,6 +32,9 @@ try:
     emergent_c.stats1.kind = "hinted"
     emergent_c.stats1.total.kind = "hinted"
     emergent_c.cam.ensure_nonblocking()
+
+    warmup_det(emergent_c)
+
 except Exception as exc:
     print(exc)
     print("\n Unable to initiate Emergent camera. Something is wrong... ")

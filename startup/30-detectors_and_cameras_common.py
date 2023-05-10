@@ -233,6 +233,93 @@ class XPDContinuous(ContinuousAcquisitionTrigger, XPDAreaDetector):
     pass
 
 
+def warmup_det(det):
+
+    """
+    Adapted from https://github.com/bluesky/ophyd/blob/7612b2c9de9d5bc16cf28eea79ba5c12553f3cc2/ophyd/areadetector/plugins.py#L966
+    For hdf5 plugin "priming". ophyd version on;y supports Internal trigger mode.
+    """
+
+    if det.name == "dexela":
+        warmup_sigs = OrderedDict(
+            [
+                (det.cam.array_callbacks, 1),
+                (det.cam.image_mode, "Single"),
+                (det.cam.trigger_mode, "Int. Free Run"),
+                (det.cam.acquire_time, 1),
+                (det.cam.acquire_period, 1),
+                (det.cam.acquire, 1),
+            ]
+        )
+    elif det.name == "prosilica":
+        warmup_sigs = OrderedDict(
+            [
+                (det.cam.array_callbacks, 1),
+                (det.cam.image_mode, "Single"),
+                (det.cam.trigger_mode, "Free Run"),
+                (det.cam.acquire_time, 1),
+                (det.cam.acquire_period, 1),
+                (det.cam.acquire, 1),
+            ]
+        )
+    elif det.name == "blackfly":
+        warmup_sigs = OrderedDict(
+            [
+                (det.cam.array_callbacks, 1),
+                (det.cam.image_mode, "Single"),
+                (det.cam.trigger_mode, "Off"),
+                (det.cam.acquire_time, 1),
+                (det.cam.acquire_period, 1),
+                (det.cam.acquire, 1),
+            ]
+        )
+    elif det.name == "emergent":
+        warmup_sigs = OrderedDict(
+            [
+                (det.cam.array_callbacks, 1),
+                (det.cam.image_mode, "Single"),
+                (det.cam.trigger_mode, "Internal"),
+                (det.cam.acquire_time, 1),
+                (det.cam.acquire_period, 1),
+                (det.cam.acquire, 1),
+            ]
+        )
+    elif det.name == "alliedvision":
+        warmup_sigs = OrderedDict(
+            [
+                (det.cam.array_callbacks, 1),
+                (det.cam.image_mode, "Single"),
+                (det.cam.trigger_mode, "Off"),
+                (det.cam.acquire_time, 1),
+                (det.cam.acquire_period, 1),
+                (det.cam.acquire, 1),
+            ]
+        )
+    elif det.name == "xs3":
+        warmup_sigs = OrderedDict(
+            [
+                (det.cam.array_callbacks, 1),
+                (det.cam.image_mode, "Single"),
+                (det.cam.trigger_mode, "Internal"),
+                (det.cam.acquire_time, 1),
+                (det.cam.acquire_period, 1),
+                (det.cam.acquire, 1),
+            ]
+        )
+
+    original_vals = {sig: sig.get() for sig in warmup_sigs}
+
+    for sig, val in warmup_sigs.items():
+        ttime.sleep(0.1)
+        sig.set(val).wait()
+
+    ttime.sleep(2)
+
+    for sig, val in reversed(list(original_vals.items())):
+        ttime.sleep(0.1)
+        sig.set(val).wait()
+
+
 """
 /xx//site-packages/ophyd/areadetector/detectors.py
     def make_data_key(self):

@@ -33,6 +33,9 @@ try:
     alliedvision_c.stats1.kind = "hinted"
     alliedvision_c.stats1.total.kind = "hinted"
     alliedvision_c.cam.ensure_nonblocking()
+
+    warmup_det(alliedvision_c)
+
 except Exception as exc:
     print(exc)
     print("\n Unable to initiate Allied Vision camera. Something is wrong... ")

@@ -50,6 +50,9 @@ try:
     prosilica_c.stats1.kind = "hinted"
     prosilica_c.stats1.total.kind = "hinted"
     prosilica_c.cam.ensure_nonblocking()
+
+    warmup_det(prosilica_c)
+
 except Exception as exc:
     print(exc)
     print("\n Unable to initiate prosilica camera. Something is wrong... ")
