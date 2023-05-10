@@ -12,11 +12,13 @@ from ophyd.areadetector import (
     AreaDetector,
     ImagePlugin,
     TIFFPlugin,
+    HDF5Plugin,
     StatsPlugin,
     ProcessPlugin,
     ROIPlugin,
     CamBase,
 )
+from ophyd.areadetector.plugins import HDF5Plugin_V33
 
 from ophyd.areadetector.filestore_mixins import (
     FileStoreTIFFIterativeWrite,
@@ -33,6 +35,7 @@ from ophyd import Component
 from ophyd import Signal, EpicsSignal, EpicsSignalRO
 from nslsii.ad33 import SingleTriggerV33, StatsPluginV33
 from ophyd.areadetector import EpicsSignalWithRBV as SignalWithRBV
+
 
 from ophyd.device import BlueskyInterface
 from ophyd.device import DeviceStatus
@@ -62,6 +65,23 @@ class XPDTIFFPlugin(TIFFPlugin, FileStoreTIFFSquashing, FileStoreIterativeWrite)
     pass
 
 
+class FileStoreHDF5IterativeWrite(FileStoreTIFFSquashing):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.filestore_spec = "AD_HDF5"  # spec name stored in resource doc
+        self.stage_sigs.update(
+            [
+                ("file_template", "%s%s_%6.6d.h5"),
+            ]
+        )
+
+
+class XPDHDF5Plugin(
+    HDF5Plugin_V33, FileStoreHDF5IterativeWrite, FileStoreIterativeWrite
+):
+    pass
+
+
 class XPDAreaDetector(AreaDetector):
     cam = Component(
         XPDCamBase,
@@ -77,9 +97,19 @@ class XPDAreaDetector(AreaDetector):
 
     image = Component(ImagePlugin, "image1:")
 
-    tiff = Component(
-        XPDTIFFPlugin,
-        "TIFF1:",
+    # tiff = Component(
+    #     XPDTIFFPlugin,
+    #     "TIFF1:",
+    #     write_path_template="/a/b/c/",
+    #     read_path_template="/a/b/c",
+    #     cam_name="cam",
+    #     proc_name="proc",
+    #     read_attrs=[],
+    # )
+
+    hdf5 = Component(
+        XPDHDF5Plugin,
+        "HDF1:",
         write_path_template="/a/b/c/",
         read_path_template="/a/b/c",
         cam_name="cam",
@@ -107,8 +137,12 @@ class XPDAreaDetector(AreaDetector):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.stage_sigs.update([(self.cam.trigger_mode, "Int. Software")])
-        self.proc.stage_sigs.update([(self.proc.filter_type, "RecursiveAve")])
+        self.proc.stage_sigs.update(
+            [
+                (self.proc.filter_type, "RecursiveAve"),
+                (self.proc.data_type_out, "Float32"),
+            ]
+        )
 
 
 class ContinuousAcquisitionTrigger(BlueskyInterface):
@@ -133,6 +167,7 @@ class ContinuousAcquisitionTrigger(BlueskyInterface):
         self.cam.stage_sigs["acquire"] = 1
 
         self._plugin.stage_sigs[self._plugin.file_write_mode] = "Capture"
+        # self._plugin.stage_sigs[self._plugin.file_write_mode] = "Stream"
         self._image_name = image_name
         self._status = None
         self._num_captured_signal = self._plugin.num_captured
@@ -172,7 +207,8 @@ class ContinuousAcquisitionTrigger(BlueskyInterface):
             # This is run on a thread, so exceptions might pass silently.
             # Print and reraise so they are at least noticed.
             try:
-                self.tiff.write_file.put(1)
+                # self.hdf5.write_file.put(1)
+                self.hdf5.write_file.put(1)
             except Exception as e:
                 print(e)
                 raise

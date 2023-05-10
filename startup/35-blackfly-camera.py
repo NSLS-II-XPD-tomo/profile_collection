@@ -7,16 +7,24 @@ try:
     blackfly_c = XPDContinuous(
         blackfly_pv_prefix,
         name="blackfly",
-        read_attrs=["tiff", "stats1.total"],
-        plugin_name="tiff",
+        read_attrs=["hdf5", "stats1.total"],
+        plugin_name="hdf5",
     )
 
-    blackfly_c.stage_sigs.update([(blackfly_c.cam.trigger_mode, "Off")])
+    blackfly_c.stage_sigs.update(
+        [
+            (blackfly_c.cam.trigger_mode, "Off"),
+            (blackfly_c.cam.data_type, "UInt16"),
+            (blackfly_c.cam.color_mode, "Mono"),
+        ]
+    )
 
-    blackfly_c.tiff.read_path_template = (
+    blackfly_c.proc.data_type_out.put("Float32")
+
+    blackfly_c.hdf5.read_path_template = (
         f"/nsls2/data/xpd-new/legacy/raw/xpdd/{blackfly_c.name}_data/%Y/%m/%d/"
     )
-    blackfly_c.tiff.write_path_template = (
+    blackfly_c.hdf5.write_path_template = (
         f"/nsls2/data/xpd-new/legacy/raw/xpdd/{blackfly_c.name}_data/%Y/%m/%d/"
     )
 

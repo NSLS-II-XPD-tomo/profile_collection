@@ -7,16 +7,24 @@ try:
     alliedvision_c = XPDContinuous(
         alliedvision_pv_prefix,
         name="alliedvision",
-        read_attrs=["tiff", "stats1.total"],
-        plugin_name="tiff",
+        read_attrs=["hdf5", "stats1.total"],
+        plugin_name="hdf5",
     )
 
-    alliedvision_c.stage_sigs.update([(alliedvision_c.cam.trigger_mode, "Off")])
+    alliedvision_c.stage_sigs.update(
+        [
+            (alliedvision_c.cam.trigger_mode, "Off"),
+            (alliedvision_c.cam.data_type, "UInt16"),
+            (alliedvision_c.cam.color_mode, "Mono"),
+        ]
+    )
 
-    alliedvision_c.tiff.read_path_template = (
+    alliedvision_c.proc.data_type_out.put("Float32")
+
+    alliedvision_c.hdf5.read_path_template = (
         f"/nsls2/data/xpd-new/legacy/raw/xpdd/{alliedvision_c.name}_data/%Y/%m/%d/"
     )
-    alliedvision_c.tiff.write_path_template = (
+    alliedvision_c.hdf5.write_path_template = (
         f"/nsls2/data/xpd-new/legacy/raw/xpdd/{alliedvision_c.name}_data/%Y/%m/%d/"
     )
 

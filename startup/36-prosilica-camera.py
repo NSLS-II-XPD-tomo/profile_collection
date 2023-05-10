@@ -24,16 +24,24 @@ try:
     prosilica_c = XPDContinuous_rgb(
         prosilica_pv_prefix,
         name="prosilica",
-        read_attrs=["tiff", "stats1.total"],
-        plugin_name="tiff",
+        read_attrs=["hdf5", "stats1.total"],
+        plugin_name="hdf5",
     )
 
-    prosilica_c.stage_sigs.update([(prosilica_c.cam.trigger_mode, "Free Run")])
+    prosilica_c.stage_sigs.update(
+        [
+            (prosilica_c.cam.trigger_mode, "Free Run"),
+            (prosilica_c.cam.data_type, "UInt8"),
+            (prosilica_c.cam.color_mode, "RGB1"),
+        ]
+    )
 
-    prosilica_c.tiff.read_path_template = (
+    prosilica_c.proc.data_type_out.put("Float32")
+
+    prosilica_c.hdf5.read_path_template = (
         f"/nsls2/data/xpd-new/legacy/raw/xpdd/{prosilica_c.name}_data/%Y/%m/%d/"
     )
-    prosilica_c.tiff.write_path_template = (
+    prosilica_c.hdf5.write_path_template = (
         f"/nsls2/data/xpd-new/legacy/raw/xpdd/{prosilica_c.name}_data/%Y/%m/%d/"
     )
 
